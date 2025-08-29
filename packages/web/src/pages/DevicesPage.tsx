@@ -3,8 +3,6 @@ import { useSensorStore, useSensorSocket, SensorCard, Button } from '@ultibiker/
 import { Search, Plus, RotateCcw } from 'lucide-react';
 
 export function DevicesPage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  
   const { 
     availableDevices, 
     connectedDevices, 
@@ -37,157 +35,174 @@ export function DevicesPage() {
     socketDisconnectDevice(deviceId);
   };
 
-  const filteredAvailableDevices = availableDevices.filter(device =>
-    device.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    device.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    device.manufacturerName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Device type icons matching original spec
+  const getDeviceIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'heartrate':
+      case 'heart_rate':
+        return '💓';
+      case 'power':
+        return '⚡';
+      case 'cadence':
+        return '🔄';
+      case 'speed':
+        return '📏';
+      case 'trainer':
+        return '🚴';
+      default:
+        return '🎯';
+    }
+  };
 
-  const filteredConnectedDevices = connectedDevices.filter(device =>
-    device.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    device.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    device.manufacturerName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Signal strength indicator matching original spec
+  const getSignalStrength = (rssi: number) => {
+    if (rssi >= -50) return '📶'; // Excellent (4 bars)
+    if (rssi >= -60) return '📶'; // Good (3 bars) 
+    if (rssi >= -70) return '📶'; // Fair (2 bars)
+    if (rssi >= -80) return '📶'; // Poor (1 bar)
+    return '❌'; // No signal
+  };
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Devices</h1>
-          <p className="text-gray-500">
-            Manage your cycling sensors and monitor connections
-          </p>
+      {/* Scan Controls - matching original spec */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <h2 className="text-xl font-semibold text-gray-900">🔍 SCAN FOR DEVICES</h2>
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={isScanning ? handleStopScanning : handleStartScanning}
+              variant={isScanning ? 'secondary' : 'primary'}
+              className="flex items-center space-x-2"
+            >
+              {isScanning ? (
+                <>
+                  <RotateCcw className="w-4 h-4 animate-spin" />
+                  <span>⏹️ Stop</span>
+                </>
+              ) : (
+                <>
+                  <span>🔄 Scanning...</span>
+                </>
+              )}
+            </Button>
+          </div>
         </div>
-        
-        <div className="flex items-center space-x-3">
-          <Button
-            onClick={isScanning ? handleStopScanning : handleStartScanning}
-            variant={isScanning ? 'secondary' : 'primary'}
-            className="flex items-center space-x-2"
-          >
-            {isScanning ? (
-              <>
-                <RotateCcw className="w-4 h-4 animate-spin" />
-                <span>Stop Scanning</span>
-              </>
+      </div>
+
+      {/* Two-column layout matching original design spec */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Left Column: Detected Devices */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
+            📋 DETECTED DEVICES
+          </h3>
+          
+          {/* ANT+ Devices */}
+          <div className="mb-6">
+            <h4 className="font-medium text-gray-700 mb-3">📡 ANT+ Devices:</h4>
+            {availableDevices.filter(d => d.protocol === 'ant+').length === 0 ? (
+              <p className="text-gray-500 text-sm italic">No ANT+ devices found</p>
             ) : (
-              <>
-                <Plus className="w-4 h-4" />
-                <span>Start Scanning</span>
-              </>
+              availableDevices.filter(d => d.protocol === 'ant+').map((device) => (
+                <div key={device.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded mb-2">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-lg">{getDeviceIcon(device.type)}</span>
+                    <div>
+                      <div className="font-medium">{device.name}</div>
+                      <div className="text-sm text-gray-500">{device.type} Sensor</div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => handleConnectDevice(device.id)}
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1"
+                  >
+                    +Add
+                  </Button>
+                </div>
+              ))
             )}
-          </Button>
+          </div>
+
+          {/* Bluetooth Devices */}
+          <div>
+            <h4 className="font-medium text-gray-700 mb-3">📶 Bluetooth Devices:</h4>
+            {availableDevices.filter(d => d.protocol === 'bluetooth').length === 0 ? (
+              <p className="text-gray-500 text-sm italic">No Bluetooth devices found</p>
+            ) : (
+              availableDevices.filter(d => d.protocol === 'bluetooth').map((device) => (
+                <div key={device.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded mb-2">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-lg">{getDeviceIcon(device.type)}</span>
+                    <div>
+                      <div className="font-medium">{device.name}</div>
+                      <div className="text-sm text-gray-500">{device.type} Sensor</div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => handleConnectDevice(device.id)}
+                    size="sm" 
+                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1"
+                  >
+                    +Add
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search devices..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-        />
-      </div>
-
-      {/* Connected Devices */}
-      {filteredConnectedDevices.length > 0 && (
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Connected Devices ({filteredConnectedDevices.length})
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredConnectedDevices.map((device) => (
-              <SensorCard
-                key={device.id}
-                device={device}
-                data={sensorData[device.id]}
-                connected={true}
-                onDisconnect={handleDisconnectDevice}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Available Devices */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Available Devices ({filteredAvailableDevices.length})
-          </h2>
-          {isScanning && (
-            <div className="flex items-center text-sm text-gray-500">
-              <RotateCcw className="w-4 h-4 animate-spin mr-2" />
-              Scanning for devices...
-            </div>
+        {/* Right Column: Connected Devices */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
+            ✅ CONNECTED DEVICES
+          </h3>
+          
+          {connectedDevices.length === 0 ? (
+            <p className="text-gray-500 text-sm italic">No devices connected</p>
+          ) : (
+            connectedDevices.map((device) => (
+              <div key={device.id} className="py-3 px-3 bg-green-50 rounded mb-3 border border-green-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-lg">{getDeviceIcon(device.type)}</span>
+                    <div>
+                      <div className="font-medium text-gray-900">
+                        {device.name} ({device.type})
+                      </div>
+                      <div className="text-sm text-green-600">
+                        Status: Connected ✅
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Signal: Strong {getSignalStrength(device.signalStrength || -50)}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => handleDisconnectDevice(device.id)}
+                    size="sm"
+                    variant="danger"
+                    className="px-2 py-1"
+                  >
+                    ❌ Remove
+                  </Button>
+                </div>
+              </div>
+            ))
           )}
         </div>
+      </div>
 
-        {filteredAvailableDevices.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-              <Search className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {isScanning ? 'Searching for devices...' : 'No devices found'}
-            </h3>
-            <p className="text-gray-500 mb-4">
-              {isScanning 
-                ? 'Make sure your sensors are in pairing mode and nearby.'
-                : 'Click "Start Scanning" to discover nearby cycling sensors.'
-              }
-            </p>
-            {!isScanning && (
-              <Button onClick={handleStartScanning} className="inline-flex items-center space-x-2">
-                <Plus className="w-4 h-4" />
-                <span>Start Scanning</span>
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAvailableDevices.map((device) => (
-              <SensorCard
-                key={device.id}
-                device={device}
-                connected={false}
-                onConnect={handleConnectDevice}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Device Statistics */}
-      <section className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Device Statistics</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-primary-600">
-              {connectedDevices.length}
-            </div>
-            <div className="text-sm text-gray-500">Connected</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-gray-600">
-              {availableDevices.length}
-            </div>
-            <div className="text-sm text-gray-500">Available</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-green-600">
-              {Object.values(sensorData).filter(data => data).length}
-            </div>
-            <div className="text-sm text-gray-500">Active Streams</div>
-          </div>
+      {/* Device Status Footer - matching original spec */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <h4 className="font-medium text-gray-700 mb-2">📊 Device Status:</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+          <div>• ANT+ Stick: Connected ✅</div>
+          <div>• Bluetooth: Enabled ✅</div> 
+          <div>• Total Devices: {connectedDevices.length} connected</div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

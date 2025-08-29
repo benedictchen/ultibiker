@@ -99,6 +99,9 @@
       "Read(/tmp/**)",
       "Bash(npx puppeteer browsers:*)",
       "Read(/tmp/**)",
+      "Read(/tmp/**)",
+      "Read(/tmp/**)",
+      "Read(/tmp/**)",
       "Read(/tmp/**)"
     ],
     "deny": [],
