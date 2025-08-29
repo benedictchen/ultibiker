@@ -91,7 +91,7 @@ class ErrorHandler {
         const originalFetch = window.fetch;
         window.fetch = async (...args) => {
             try {
-                const response = await originalFetch.apply(window, args);
+                const response = await originalFetch.apply(this, args);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -1019,7 +1019,7 @@ class UltiBikerDashboard {
     }
 
     updateChart(reading) {
-        const now = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const now = dateFns.format(new Date(), 'HH:mm:ss');
         const datasets = this.chart.data.datasets;
         const labels = this.chart.data.labels;
         
@@ -1074,7 +1074,7 @@ class UltiBikerDashboard {
         }
         
         if (lastUpdateElement && this.lastUpdateTime) {
-            lastUpdateElement.textContent = this.lastUpdateTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            lastUpdateElement.textContent = dateFns.format(this.lastUpdateTime, 'HH:mm:ss');
         }
         
         if (dataRateDisplayElement) {
@@ -1086,7 +1086,7 @@ class UltiBikerDashboard {
         const rawDataElement = document.getElementById('rawDataStream');
         if (!rawDataElement) return;
         
-        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const timestamp = dateFns.format(new Date(), 'HH:mm:ss');
         const deviceName = this.getDeviceName(reading.deviceId) || reading.deviceId;
         const dataLine = `${timestamp} | ${deviceName}: ${reading.value} ${reading.unit || ''}`;
         
@@ -1948,8 +1948,6 @@ class UltiBikerDashboard {
         const recordingStatus = document.getElementById('recordingStatus');
         const recordingIndicator = document.getElementById('recordingIndicator');
         const sessionControls = document.getElementById('sessionControls');
-        const pauseBtn = document.getElementById('pauseSessionBtn');
-        const exportBtn = document.getElementById('exportSessionBtn');
         
         this.isRecording = isActive;
         this.currentSessionId = sessionId;
@@ -1958,8 +1956,6 @@ class UltiBikerDashboard {
             if (startBtn) startBtn.style.display = 'none';
             if (stopBtn) stopBtn.style.display = 'inline-block';
             if (sessionControls) sessionControls.style.display = 'flex';
-            if (pauseBtn) pauseBtn.style.display = 'inline-block';
-            if (exportBtn) exportBtn.style.display = 'inline-block';
             if (sessionStatus) {
                 sessionStatus.innerHTML = `<span class="badge bg-success">Active Session</span>`;
                 if (sessionName) {
@@ -1975,8 +1971,6 @@ class UltiBikerDashboard {
             if (startBtn) startBtn.style.display = 'inline-block';
             if (stopBtn) stopBtn.style.display = 'none';
             if (sessionControls) sessionControls.style.display = 'none';
-            if (pauseBtn) pauseBtn.style.display = 'none';
-            if (exportBtn) exportBtn.style.display = 'none';
             if (sessionStatus) {
                 sessionStatus.innerHTML = '<span class="badge bg-secondary">No Active Session</span>';
             }
@@ -1993,12 +1987,7 @@ class UltiBikerDashboard {
             const now = new Date();
             const timeElement = document.getElementById('liveTime');
             if (timeElement) {
-                timeElement.textContent = now.toLocaleTimeString('en-US', { 
-                    hour12: false,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
+                timeElement.textContent = dateFns.format(now, 'HH:mm:ss');
             }
         }, 1000);
     }

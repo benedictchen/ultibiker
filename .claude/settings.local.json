@@ -60,7 +60,18 @@
       "Bash(kill:*)",
       "Bash(PORT=3001 timeout 15s npm run dev)",
       "Bash(PORT=3002 npx tsx src/server.ts)",
-      "Bash(pnpm install:*)"
+      "Bash(pnpm install:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm run:*)",
+      "Bash(pnpm --filter @ultibiker/server build)",
+      "Bash(pnpm --filter @ultibiker/server type-check)",
+      "Bash(pnpm --filter @ultibiker/core build)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm --filter @ultibiker/server test:quick)",
+      "Bash(PORT=3001 pnpm --filter @ultibiker/server dev)",
+      "Bash(pnpm:*)",
+      "Bash(PORT=3001 pnpm dev)",
+      "Bash(open http://localhost:3001)"
     ],
     "deny": [],
     "ask": []

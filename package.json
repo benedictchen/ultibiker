@@ -40,11 +40,14 @@
     "type-check": "pnpm --recursive run type-check"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "tsx": "^4.20.5"
+    "tsx": "^4.20.5",
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.2.0"
   }
 }

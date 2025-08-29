@@ -1,21 +1,21 @@
 # UltiBiker 🚴‍♂️
 
-**Cycling Sensor Data Aggregation Platform**
+**Multi-Platform Cycling Sensor Data Aggregation Platform**
 
-A TypeScript-based platform for aggregating and analyzing cycling sensor data from ANT+ and Bluetooth devices.
+A TypeScript monorepo platform for real-time cycling sensor data aggregation across web, mobile, and desktop applications.
+
+> **📱 Multi-Platform Vision**: Web • Mobile • Desktop • CLI
 
 ## ⚠️ **NO MOCK/FAKE CODE POLICY**
 
 **UltiBiker only works with REAL sensors and REAL data.**
 
 - ❌ **NO mock sensors**
-- ❌ **NO fake data**
+- ❌ **NO fake data**  
 - ❌ **NO demo/test devices**
 - ❌ **NO simulated readings**
 
 **This application REQUIRES real ANT+ or Bluetooth cycling sensors to function.**
-
-If you don't have real sensors, this application will not work for you. We do not provide any fake or simulated sensor data as this would compromise the integrity of real cycling performance data.
 
 ## 🚀 Quick Start
 
@@ -24,18 +24,23 @@ If you don't have real sensors, this application will not work for you. We do no
 git clone <repository-url> ultibiker
 cd ultibiker
 
-# 2. Install dependencies
-npm install
+# 2. Install dependencies (includes native modules)
+pnpm install
 
-# 3. Initialize database
-npm run db:setup
+# 3. Build core packages
+pnpm --filter @ultibiker/core build
 
-# 4. Start development server
-npm run dev
+# 4. Initialize database
+pnpm db:setup
 
-# 5. Open browser and check permissions
-open http://localhost:3000/test-sensors.html
+# 5. Start development server
+pnpm dev
+
+# 6. Open browser
+open http://localhost:3000
 ```
+
+**📖 Detailed Setup Guide**: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
 
 ### 🔒 Device Permissions Setup
 
@@ -74,12 +79,18 @@ sudo usermod -a -G dialout $USER
 
 ## 🛠️ Tech Stack
 
-- **Runtime**: Node.js + tsx
-- **Database**: SQLite + Drizzle ORM
+**Monorepo Architecture:**
+- **Package Manager**: pnpm workspaces
+- **Build System**: TypeScript + tsx
+- **Testing**: Vitest + Playwright
+
+**Core Technologies:**
+- **Runtime**: Node.js (server) + Bun (optional)
+- **Database**: SQLite + Drizzle ORM  
 - **API**: Express.js + Socket.io
-- **Testing**: Vitest + Supertest
+- **Frontend**: Bootstrap + Chart.js (migrating to React)
 - **Code Quality**: Biome (formatter/linter)
-- **Language**: TypeScript
+- **Language**: TypeScript (strict mode)
 
 ## 📡 API Endpoints
 
@@ -102,18 +113,23 @@ sudo usermod -a -G dialout $USER
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-npm run test -- --run
+# Run all tests across packages
+pnpm test
 
-# Run tests in watch mode
-npm run test
+# Run tests for specific package
+pnpm --filter @ultibiker/server test
 
-# Run specific test file
-npm run test -- tests/sensors/data-parser.test.ts
+# Run test categories
+pnpm test:unit          # Unit tests only
+pnpm test:integration   # Integration tests  
+pnpm test:e2e          # End-to-end tests
+
+# Watch mode for development
+pnpm test:watch
 ```
 
-**Current Status**: 72 passing tests, 72 failing tests (50% pass rate)
-*Excellent progress for TDD where tests were written before implementation*
+**Current Status**: 317 comprehensive tests (some failing after monorepo migration)
+*Excellent TDD foundation - tests written before implementation*
 
 ## 🗃️ Database
 
@@ -121,29 +137,35 @@ Uses SQLite with Drizzle ORM for type-safe database operations:
 
 ```bash
 # View database in browser
-npm run db:studio
+pnpm db:studio
 
 # Generate migrations after schema changes
-npm run db:generate
+pnpm db:generate
 
 # Apply migrations
-npm run db:migrate
+pnpm db:migrate
+
+# Reset database
+pnpm db:drop
 ```
 
 ## 🔧 Development
 
 ```bash
 # Start dev server with hot reload
-npm run dev
+pnpm dev
 
-# Format code
-npm run format
+# Format code across all packages
+pnpm format
 
 # Lint and fix issues
-npm run check
+pnpm check
 
-# Type check
-npm run type-check
+# Type check all packages
+pnpm type-check
+
+# Build all packages
+pnpm build
 ```
 
 ## 📊 Current Implementation
@@ -170,17 +192,35 @@ npm run type-check
 
 See [docs/06-development-setup.md](docs/06-development-setup.md) for detailed setup and configuration information.
 
-## 🏗️ Architecture
+## 🏗️ Monorepo Architecture
 
 ```
-📁 src/
-├── 🖥️  server.ts              # Main server entry point
-├── 📡 sensors/               # Sensor integration layer
-├── 🗃️  database/              # Database layer (SQLite + Drizzle)  
-├── 🛠️  services/              # Business logic services
-├── 🌐 api/                   # REST API endpoints
-├── 📡 websocket/             # Real-time communication
-└── 🏷️  types/                # TypeScript type definitions
+📁 UltiBiker/
+├── 📦 packages/
+│   ├── 🎯 core/                    # Shared types & business logic
+│   │   ├── types/                  # Cross-platform type definitions
+│   │   ├── services/               # Data processing & validation
+│   │   └── utils/                  # Shared utilities
+│   │
+│   ├── 🖥️  server/                 # Node.js backend + web UI
+│   │   ├── src/
+│   │   │   ├── sensors/            # ANT+ & BLE integration
+│   │   │   ├── database/           # SQLite + Drizzle ORM
+│   │   │   ├── api/                # REST endpoints
+│   │   │   ├── websocket/          # Real-time data streaming
+│   │   │   └── services/           # Business logic
+│   │   ├── public/                 # Web dashboard assets
+│   │   └── tests/                  # 317 comprehensive tests
+│   │
+│   ├── 📱 mobile/ (planned)        # React Native app
+│   ├── 💻 desktop/ (planned)       # Tauri desktop app  
+│   └── 🌐 web/ (planned)           # React web frontend
+│
+├── 📚 docs/                        # Documentation
+├── 🛠️  scripts/                    # Build & utility scripts
+└── 📦 pnpm-workspace.yaml          # Monorepo configuration
 ```
+
+**🎯 Multi-Platform Strategy**: Shared `@ultibiker/core` package enables consistent business logic across all platforms.
 
 Built with ❤️ for the cycling community

@@ -1,0 +1,33 @@
+import { EventEmitter } from 'events';
+export declare class BLEManager extends EventEmitter {
+    private isScanning;
+    private discoveredDevices;
+    private connectedDevices;
+    private dataIntervals;
+    private isInitialized;
+    startScanning(): Promise<void>;
+    stopScanning(): void;
+    connectDevice(deviceId: string): Promise<boolean>;
+    disconnectDevice(deviceId: string): Promise<boolean>;
+    private initializeNoble;
+    private setupNobleEventHandlers;
+    private handleDeviceDiscovery;
+    private isPotentialCyclingDevice;
+    private identifyDeviceType;
+    private identifyDeviceTypeByName;
+    private checkPermissions;
+    private getBluetoothErrorMessage;
+    private calculateSignalStrength;
+    private setupDeviceServices;
+    private discoverCharacteristics;
+    private setupCharacteristic;
+    private parseHeartRateData;
+    private parsePowerData;
+    private parseCSCData;
+    private parseTrainerData;
+    private previousWheelData;
+    private previousCrankData;
+    private calculateSpeedFromRevolutions;
+    private calculateCadenceFromRevolutions;
+    shutdown(): Promise<void>;
+}
