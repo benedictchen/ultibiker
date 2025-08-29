@@ -71,7 +71,12 @@
       "Bash(PORT=3001 pnpm --filter @ultibiker/server dev)",
       "Bash(pnpm:*)",
       "Bash(PORT=3001 pnpm dev)",
-      "Bash(open http://localhost:3001)"
+      "Bash(open http://localhost:3001)",
+      "Bash(PORT=3002 pnpm --filter @ultibiker/server dev)",
+      "Bash(git remote add:*)",
+      "Bash(open http://localhost:3000/test-notifications.html)",
+      "Bash(open http://localhost:3000/test-notifications-new.html)",
+      "Bash(open http://localhost:3002)"
     ],
     "deny": [],
     "ask": []

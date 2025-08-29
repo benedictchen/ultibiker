@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UltiBiker - Advanced Notification Coalescing Test</title>
+    
+    <!-- Local Assets - No CDN Dependencies -->
+    <link href="/assets/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/css/toastify.css" rel="stylesheet">
+    
+    <!-- JavaScript Libraries - Local -->
+    <script src="/assets/js/toastify.js"></script>
+    
+    <style>
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 2rem;
+        }
+        
+        .test-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .btn {
+            margin: 0.5rem;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 2rem;
+        }
+        
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+        }
+        
+        .stats {
+            background: rgba(0,123,255,0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .console-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Advanced Notification Coalescing Test (2025)</h1>
+        
+        <div class="stats">
+            <h5>📊 Coalescing Statistics</h5>
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Notifications Sent:</strong> <span id="sentCount">0</span>
+                </div>
+                <div class="col-md-3">
+                    <strong>Toasts Shown:</strong> <span id="shownCount">0</span>
+                </div>
+                <div class="col-md-3">
+                    <strong>Coalescing Rate:</strong> <span id="coalescingRate">0%</span>
+                </div>
+                <div class="col-md-3">
+                    <strong>Active Queue:</strong> <span id="activeQueue">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🚀 Smart Coalescing Tests</h3>
+            <button class="btn btn-primary" onclick="testSensorMessages()">Sensor Messages (10x)</button>
+            <button class="btn btn-success" onclick="testConnectionMessages()">Connection Events (8x)</button>
+            <button class="btn btn-danger" onclick="testErrorMessages()">Error Cascade (15x)</button>
+            <button class="btn btn-warning" onclick="testMixedSimilar()">Mixed Similar (12x)</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>📱 Real-World Scenarios</h3>
+            <button class="btn btn-info" onclick="testRealtimeSensorData()">Real-time Sensor Stream</button>
+            <button class="btn btn-secondary" onclick="testNetworkGlitches()">Network Glitches</button>
+            <button class="btn btn-dark" onclick="testPermissionFlow()">Permission Flow</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>⚡ Performance & Edge Cases</h3>
+            <button class="btn btn-outline-danger" onclick="testNotificationFlood()">Notification Flood (50x)</button>
+            <button class="btn btn-outline-warning" onclick="testDuplicateSuppression()">Duplicate Suppression</button>
+            <button class="btn btn-outline-info" onclick="testMaxToastLimit()">Max Toast Limit</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔧 Controls & Debug</h3>
+            <button class="btn btn-outline-secondary" onclick="clearAllNotifications()">Clear All</button>
+            <button class="btn btn-outline-primary" onclick="showCoalescingStats()">Show Stats</button>
+            <button class="btn btn-outline-success" onclick="testSingleImmediate()">Single Immediate</button>
+        </div>
+        
+        <div class="test-section">
+            <h5>📋 Console Log</h5>
+            <div id="consoleLog" class="console-log">Ready for testing...\n</div>
+        </div>
+    </div>
+
+    <script>
+        // Advanced ErrorHandler with 2025 coalescing strategy
+        class ErrorHandler {
+            constructor() {
+                this.toastId = 0;
+                this.totalSent = 0;
+                this.totalShown = 0;
+                this.setupNotificationBatching();
+            }
+
+            setupNotificationBatching() {
+                // Modern notification coalescing system based on 2025 UX research
+                this.activeToasts = new Map(); // id -> toast reference
+                this.coalescingQueue = new Map(); // signature -> notification data
+                this.coalescingTimers = new Map(); // signature -> timer id
+                this.lastShown = new Map(); // signature -> timestamp
+                
+                // Configuration based on UX research
+                this.coalescingDelay = 800; // Optimal delay from UX research
+                this.duplicateSuppressionWindow = 5000; // 5s window to prevent duplicates
+                this.maxToastsVisible = 4; // Limit visible toasts (UX best practice)
+                this.toastAutoHideDelay = 6000; // Auto-hide delay
+                
+                this.setupCoalescingPatterns();
+            }
+
+            setupCoalescingPatterns() {
+                this.coalescingRules = [
+                    { name: 'connection', pattern: /connect|disconnect|link|unlink/i, group: 'connectivity', priority: 'high' },
+                    { name: 'sensor', pattern: /sensor|device|reading|data/i, group: 'sensors', priority: 'medium' },
+                    { name: 'error', pattern: /error|fail|problem|issue/i, group: 'errors', priority: 'high' },
+                    { name: 'permission', pattern: /permission|access|grant|deny/i, group: 'permissions', priority: 'high' }
+                ];
+            }
+
+            log(message) {
+                const consoleLog = document.getElementById('consoleLog');
+                if (consoleLog) {
+                    consoleLog.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+                    consoleLog.scrollTop = consoleLog.scrollHeight;
+                }
+                console.log(message);
+            }
+
+            updateStats() {
+                document.getElementById('sentCount').textContent = this.totalSent;
+                document.getElementById('shownCount').textContent = this.totalShown;
+                const rate = this.totalSent > 0 ? Math.round(((this.totalSent - this.totalShown) / this.totalSent) * 100) : 0;
+                document.getElementById('coalescingRate').textContent = rate + '%';
+                document.getElementById('activeQueue').textContent = this.coalescingQueue.size;
+            }
+
+            showToast(message, type = 'info', description = null, duration = 5000, skipCoalescing = false) {
+                this.totalSent++;
+                this.updateStats();
+                
+                if (skipCoalescing) {
+                    this.log(`Showing immediate: ${message}`);
+                    return this.showImmediateToast(message, type, description, duration);
+                }
+
+                this.log(`Queueing for coalescing: ${message}`);
+                return this.coalesceNotification(message, type, description, duration);
+            }
+
+            generateNotificationSignature(message, type, description) {
+                const matchedRule = this.coalescingRules.find(rule => 
+                    rule.pattern.test(message) || (description && rule.pattern.test(description))
+                );
+                
+                if (matchedRule) {
+                    return `${type}:${matchedRule.group}`;
+                }
+                
+                const messageKey = message.toLowerCase().replace(/\d+/g, 'N');
+                return `${type}:${messageKey}`;
+            }
+
+            coalesceNotification(message, type, description, duration) {
+                const signature = this.generateNotificationSignature(message, type, description);
+                const now = Date.now();
+                
+                // Check for recent duplicate
+                const lastShownTime = this.lastShown.get(signature);
+                if (lastShownTime && (now - lastShownTime) < this.duplicateSuppressionWindow) {
+                    this.log(`Suppressed duplicate: ${signature}`);
+                    return `suppressed-${signature}-${now}`;
+                }
+                
+                // Add to coalescing queue
+                if (!this.coalescingQueue.has(signature)) {
+                    this.coalescingQueue.set(signature, {
+                        messages: [],
+                        type: type,
+                        firstTimestamp: now,
+                        lastUpdated: now
+                    });
+                }
+                
+                const queueData = this.coalescingQueue.get(signature);
+                queueData.messages.push({ message, description, duration, timestamp: now });
+                queueData.lastUpdated = now;
+                
+                // Clear existing timer
+                if (this.coalescingTimers.has(signature)) {
+                    clearTimeout(this.coalescingTimers.get(signature));
+                }
+                
+                // Set new timer
+                const timer = setTimeout(() => {
+                    this.processCoalescedNotification(signature);
+                }, this.coalescingDelay);
+                
+                this.coalescingTimers.set(signature, timer);
+                this.updateStats();
+                
+                // Priority handling
+                const matchedRule = this.coalescingRules.find(rule => 
+                    rule.pattern.test(message) || (description && rule.pattern.test(description))
+                );
+                
+                if (queueData.messages.length >= 8 || (matchedRule && matchedRule.priority === 'high' && queueData.messages.length >= 3)) {
+                    clearTimeout(timer);
+                    this.processCoalescedNotification(signature);
+                }
+                
+                return `coalesced-${signature}-${now}`;
+            }
+
+            processCoalescedNotification(signature) {
+                const queueData = this.coalescingQueue.get(signature);
+                if (!queueData || queueData.messages.length === 0) return;
+                
+                const { messages, type } = queueData;
+                const count = messages.length;
+                
+                let displayMessage, displayDescription, displayDuration;
+                
+                if (count === 1) {
+                    const msg = messages[0];
+                    displayMessage = msg.message;
+                    displayDescription = msg.description;
+                    displayDuration = msg.duration || this.toastAutoHideDelay;
+                } else {
+                    const messageGroups = this.groupSimilarMessages(messages);
+                    
+                    if (messageGroups.size === 1) {
+                        const [groupKey, groupData] = messageGroups.entries().next().value;
+                        displayMessage = `${groupData.representative.message} (${count}x)`;
+                        displayDescription = `${count} similar notifications coalesced`;
+                    } else {
+                        const semanticGroup = this.getSemanticGroup(signature);
+                        displayMessage = `${count} ${semanticGroup || type} notifications`;
+                        
+                        const uniqueMessages = Array.from(messageGroups.keys()).slice(0, 3);
+                        displayDescription = uniqueMessages.join('\n');
+                        if (messageGroups.size > 3) {
+                            displayDescription += `\n... and ${messageGroups.size - 3} more types`;
+                        }
+                    }
+                    
+                    displayDuration = Math.max(this.toastAutoHideDelay, count * 1000);
+                }
+                
+                this.log(`Showing coalesced notification: ${displayMessage} (from ${count} messages)`);
+                const toastId = this.showImmediateToast(displayMessage, type, displayDescription, displayDuration);
+                
+                this.lastShown.set(signature, Date.now());
+                this.coalescingQueue.delete(signature);
+                this.coalescingTimers.delete(signature);
+                this.updateStats();
+                
+                return toastId;
+            }
+
+            groupSimilarMessages(messages) {
+                const groups = new Map();
+                
+                messages.forEach(msg => {
+                    const normalizedKey = msg.message.toLowerCase()
+                        .replace(/\d+/g, 'N')
+                        .replace(/\b(at|on)\s+[\d:]+/g, 'at TIME')
+                        .trim();
+                    
+                    if (!groups.has(normalizedKey)) {
+                        groups.set(normalizedKey, {
+                            representative: msg,
+                            count: 0,
+                            messages: []
+                        });
+                    }
+                    
+                    const group = groups.get(normalizedKey);
+                    group.count++;
+                    group.messages.push(msg);
+                });
+                
+                return groups;
+            }
+
+            getSemanticGroup(signature) {
+                const [type, group] = signature.split(':');
+                const groupLabels = {
+                    'connectivity': 'connection',
+                    'sensors': 'sensor',
+                    'errors': 'error',
+                    'permissions': 'permission'
+                };
+                return groupLabels[group] || type;
+            }
+
+            showImmediateToast(message, type = 'info', description = null, duration = 5000) {
+                this.totalShown++;
+                
+                const iconMap = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+                const colorMap = {
+                    success: 'linear-gradient(to right, #00b09b, #96c93d)',
+                    error: 'linear-gradient(to right, #ff5f6d, #ffc371)',
+                    warning: 'linear-gradient(to right, #f093fb 0%, #f5576c 100%)',
+                    info: 'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)'
+                };
+
+                let displayText = `${iconMap[type]} ${message}`;
+                if (description) {
+                    displayText += `\n${description}`;
+                }
+
+                Toastify({
+                    text: displayText,
+                    duration: duration,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    stopOnFocus: true,
+                    style: {
+                        background: colorMap[type] || colorMap.info,
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+                    }
+                }).showToast();
+
+                this.updateStats();
+                return `toastify-${++this.toastId}`;
+            }
+
+            clearAllNotifications() {
+                this.coalescingTimers.forEach(timer => clearTimeout(timer));
+                this.coalescingQueue.clear();
+                this.coalescingTimers.clear();
+                this.activeToasts.clear();
+                this.totalSent = 0;
+                this.totalShown = 0;
+                this.updateStats();
+                this.log('All notifications cleared');
+            }
+        }
+
+        // Initialize error handler
+        const errorHandler = new ErrorHandler();
+
+        // Test functions
+        function testSensorMessages() {
+            const sensorTypes = ['Heart Rate', 'Power Meter', 'Cadence', 'Speed'];
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                    const sensor = sensorTypes[i % sensorTypes.length];
+                    errorHandler.showToast(`${sensor} sensor connected`, 'success', `Device ${i + 1} is now streaming data`);
+                }, i * 100);
+            }
+        }
+
+        function testConnectionMessages() {
+            for (let i = 0; i < 8; i++) {
+                setTimeout(() => {
+                    const action = i % 2 === 0 ? 'connected' : 'disconnected';
+                    errorHandler.showToast(`Device ${action}`, 'info', `Network connection ${action}`);
+                }, i * 150);
+            }
+        }
+
+        function testErrorMessages() {
+            const errors = ['Connection failed', 'Sensor error', 'Data parsing failed', 'Network timeout'];
+            for (let i = 0; i < 15; i++) {
+                setTimeout(() => {
+                    const error = errors[i % errors.length];
+                    errorHandler.showToast(error, 'error', `Error occurred at ${new Date().toLocaleTimeString()}`);
+                }, i * 80);
+            }
+        }
+
+        function testMixedSimilar() {
+            const messages = ['Data received', 'Data received', 'Data processed', 'Data processed', 'Data saved'];
+            for (let i = 0; i < 12; i++) {
+                setTimeout(() => {
+                    const msg = messages[i % messages.length];
+                    errorHandler.showToast(msg, 'info', `Batch ${Math.floor(i / 3) + 1}`);
+                }, i * 120);
+            }
+        }
+
+        function testRealtimeSensorData() {
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => {
+                    errorHandler.showToast('Sensor data received', 'success', `Reading: ${Math.floor(Math.random() * 200)} BPM`);
+                }, i * 60);
+            }
+        }
+
+        function testNetworkGlitches() {
+            for (let i = 0; i < 12; i++) {
+                setTimeout(() => {
+                    errorHandler.showToast('Network issue detected', 'warning', 'Attempting to reconnect...');
+                }, i * 90);
+            }
+        }
+
+        function testPermissionFlow() {
+            const perms = ['Bluetooth access requested', 'Permission granted', 'USB access needed', 'All permissions ready'];
+            perms.forEach((perm, i) => {
+                setTimeout(() => {
+                    errorHandler.showToast(perm, i < 2 ? 'warning' : 'success', 'System permission update');
+                }, i * 800);
+            });
+        }
+
+        function testNotificationFlood() {
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const types = ['success', 'error', 'warning', 'info'];
+                    const type = types[i % types.length];
+                    errorHandler.showToast(`Flood message ${i + 1}`, type, 'Testing flood protection');
+                }, i * 25);
+            }
+        }
+
+        function testDuplicateSuppression() {
+            for (let i = 0; i < 8; i++) {
+                setTimeout(() => {
+                    errorHandler.showToast('Duplicate message test', 'info', 'This should be suppressed after first few');
+                }, i * 200);
+            }
+        }
+
+        function testMaxToastLimit() {
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                    errorHandler.showToast(`Toast limit test ${i + 1}`, 'warning', 'Testing max visible limit', 10000, true);
+                }, i * 300);
+            }
+        }
+
+        function clearAllNotifications() {
+            errorHandler.clearAllNotifications();
+        }
+
+        function showCoalescingStats() {
+            errorHandler.showToast('Coalescing Statistics', 'info', 
+                `Sent: ${errorHandler.totalSent}\nShown: ${errorHandler.totalShown}\nSaved: ${errorHandler.totalSent - errorHandler.totalShown}`, 8000, true);
+        }
+
+        function testSingleImmediate() {
+            errorHandler.showToast('Single immediate notification', 'success', 'This bypasses coalescing', 5000, true);
+        }
+
+        // Initial welcome message
+        setTimeout(() => {
+            errorHandler.showToast('Advanced Coalescing System Ready', 'success', 'Try the test buttons to see intelligent notification grouping!');
+        }, 1000);
+    </script>
+</body>
+</html>

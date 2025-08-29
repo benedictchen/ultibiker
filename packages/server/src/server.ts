@@ -19,6 +19,7 @@ import { createDeviceRoutes } from './api/devices.js';
 import { createSessionRoutes } from './api/sessions.js';
 import { createDataRoutes } from './api/data.js';
 import { createPermissionRoutes } from './api/permissions.js';
+import { createErrorRoutes } from './api/errors.js';
 // Legacy logger - replaced by Winston/Sentry logging
 // import { appLogger, crashLogger } from './services/logger.js';
 
@@ -120,6 +121,7 @@ class UltiBikerServer {
     this.app.use('/api/sessions', createSessionRoutes());
     this.app.use('/api/data', createDataRoutes());
     this.app.use('/api/permissions', createPermissionRoutes(this.sensorManager));
+    this.app.use('/api/errors', createErrorRoutes());
 
     // Serve the main dashboard
     this.app.get('/', (req, res) => {

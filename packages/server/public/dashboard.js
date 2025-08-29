@@ -6,6 +6,55 @@ class ErrorHandler {
         this.toastId = 0;
         this.setupErrorDialogHandlers();
         this.setupGlobalErrorHandlers();
+        this.setupNotificationBatching();
+    }
+
+    setupNotificationBatching() {
+        // Modern notification coalescing system based on 2025 UX research
+        this.activeToasts = new Map(); // id -> toast reference
+        this.coalescingQueue = new Map(); // signature -> notification data
+        this.coalescingTimers = new Map(); // signature -> timer id
+        this.lastShown = new Map(); // signature -> timestamp
+        
+        // Configuration based on UX research
+        this.coalescingDelay = 800; // Optimal delay from UX research
+        this.duplicateSuppressionWindow = 5000; // 5s window to prevent duplicates
+        this.maxToastsVisible = 4; // Limit visible toasts (UX best practice)
+        this.toastAutoHideDelay = 6000; // Auto-hide delay
+        
+        // Message grouping patterns
+        this.messagePatterns = new Map(); // For intelligent grouping
+        this.setupCoalescingPatterns();
+    }
+
+    setupCoalescingPatterns() {
+        // Define common notification patterns for intelligent grouping
+        this.coalescingRules = [
+            {
+                name: 'connection',
+                pattern: /connect|disconnect|link|unlink/i,
+                group: 'connectivity',
+                priority: 'high'
+            },
+            {
+                name: 'sensor',
+                pattern: /sensor|device|reading|data/i,
+                group: 'sensors',
+                priority: 'medium'
+            },
+            {
+                name: 'error',
+                pattern: /error|fail|problem|issue/i,
+                group: 'errors',
+                priority: 'high'
+            },
+            {
+                name: 'permission',
+                pattern: /permission|access|grant|deny/i,
+                group: 'permissions',
+                priority: 'high'
+            }
+        ];
     }
 
     setupErrorDialogHandlers() {
@@ -69,6 +118,19 @@ class ErrorHandler {
     setupGlobalErrorHandlers() {
         // Global JavaScript errors
         window.addEventListener('error', (event) => {
+            // Report to server
+            this.reportErrorToServer({
+                message: event.message,
+                stack: event.error?.stack,
+                url: event.filename,
+                severity: 'high',
+                context: { 
+                    type: 'javascript-error',
+                    line: event.lineno,
+                    column: event.colno
+                }
+            });
+
             this.handleError({
                 type: 'JavaScript Error',
                 message: event.message,
@@ -79,6 +141,14 @@ class ErrorHandler {
 
         // Unhandled promise rejections
         window.addEventListener('unhandledrejection', (event) => {
+            // Report to server
+            this.reportErrorToServer({
+                message: `Unhandled Promise Rejection: ${event.reason}`,
+                stack: event.reason?.stack,
+                severity: 'high',
+                context: { type: 'promise-rejection' }
+            });
+
             this.handleError({
                 type: 'Unhandled Promise Rejection',
                 message: 'An unexpected error occurred in the application',
@@ -98,9 +168,39 @@ class ErrorHandler {
                 return response;
             } catch (error) {
                 this.handleNetworkError(error, args[0]);
+                // Report error to server for logging
+                this.reportErrorToServer({
+                    message: `Network Error: ${error.message}`,
+                    stack: error.stack,
+                    url: args[0],
+                    severity: 'high',
+                    context: { type: 'network-error', fetchUrl: args[0] }
+                });
                 throw error;
             }
         };
+    }
+
+    // Report errors to server for logging
+    async reportErrorToServer(errorData) {
+        try {
+            // Use original fetch to avoid recursion
+            const originalFetch = window.fetch.__original || window.fetch;
+            await originalFetch('/api/errors/report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    ...errorData,
+                    timestamp: new Date().toISOString(),
+                    userAgent: navigator.userAgent,
+                    url: window.location.href
+                })
+            });
+        } catch (reportingError) {
+            console.warn('Failed to report error to server:', reportingError);
+        }
     }
 
     handleNetworkError(error, url) {
@@ -193,7 +293,192 @@ class ErrorHandler {
         this.currentRetryAction = null;
     }
 
-    showToast(message, type = 'info', description = null, duration = 5000) {
+    showToast(message, type = 'info', description = null, duration = 5000, skipCoalescing = false) {
+        if (skipCoalescing) {
+            return this.showImmediateToast(message, type, description, duration);
+        }
+
+        return this.coalesceNotification(message, type, description, duration);
+    }
+
+    // Generate signature for notification coalescing
+    generateNotificationSignature(message, type, description) {
+        // Find matching pattern for intelligent grouping
+        const matchedRule = this.coalescingRules.find(rule => 
+            rule.pattern.test(message) || (description && rule.pattern.test(description))
+        );
+        
+        if (matchedRule) {
+            // Group by semantic meaning
+            return `${type}:${matchedRule.group}`;
+        }
+        
+        // Fallback to exact message matching
+        const messageKey = message.toLowerCase().replace(/\d+/g, 'N'); // Replace numbers
+        return `${type}:${messageKey}`;
+    }
+
+    coalesceNotification(message, type, description, duration) {
+        const signature = this.generateNotificationSignature(message, type, description);
+        const now = Date.now();
+        
+        // Check for recent duplicate (duplicate suppression)
+        const lastShownTime = this.lastShown.get(signature);
+        if (lastShownTime && (now - lastShownTime) < this.duplicateSuppressionWindow) {
+            // Update existing notification instead of showing duplicate
+            this.updateExistingNotification(signature, message, description);
+            return `coalesced-${signature}-${now}`;
+        }
+        
+        // Add to coalescing queue
+        if (!this.coalescingQueue.has(signature)) {
+            this.coalescingQueue.set(signature, {
+                messages: [],
+                type: type,
+                firstTimestamp: now,
+                lastUpdated: now
+            });
+        }
+        
+        const queueData = this.coalescingQueue.get(signature);
+        queueData.messages.push({ message, description, duration, timestamp: now });
+        queueData.lastUpdated = now;
+        
+        // Clear existing timer
+        if (this.coalescingTimers.has(signature)) {
+            clearTimeout(this.coalescingTimers.get(signature));
+        }
+        
+        // Set new timer with leading-edge debouncing
+        const timer = setTimeout(() => {
+            this.processCoalescedNotification(signature);
+        }, this.coalescingDelay);
+        
+        this.coalescingTimers.set(signature, timer);
+        
+        // If queue is getting full or high priority, show immediately
+        const matchedRule = this.coalescingRules.find(rule => 
+            rule.pattern.test(message) || (description && rule.pattern.test(description))
+        );
+        
+        if (queueData.messages.length >= 8 || (matchedRule && matchedRule.priority === 'high' && queueData.messages.length >= 3)) {
+            clearTimeout(timer);
+            this.processCoalescedNotification(signature);
+        }
+        
+        return `coalesced-${signature}-${now}`;
+    }
+    
+    updateExistingNotification(signature, message, description) {
+        // Try to update existing toast if it's still visible
+        const existingData = this.coalescingQueue.get(signature);
+        if (existingData) {
+            existingData.messages.push({ message, description, timestamp: Date.now() });
+        }
+        console.log(`Updated existing notification for signature: ${signature}`);
+    }
+
+    processCoalescedNotification(signature) {
+        const queueData = this.coalescingQueue.get(signature);
+        if (!queueData || queueData.messages.length === 0) return;
+        
+        const { messages, type } = queueData;
+        const count = messages.length;
+        
+        // Enforce maximum visible toasts limit
+        if (this.activeToasts.size >= this.maxToastsVisible) {
+            // Remove oldest toast
+            const oldestToast = this.activeToasts.values().next().value;
+            if (oldestToast && oldestToast.hideToast) {
+                oldestToast.hideToast();
+            }
+        }
+        
+        let displayMessage, displayDescription, displayDuration;
+        
+        if (count === 1) {
+            // Single message - show normally but with coalescing delay
+            const msg = messages[0];
+            displayMessage = msg.message;
+            displayDescription = msg.description;
+            displayDuration = msg.duration || this.toastAutoHideDelay;
+        } else {
+            // Multiple messages - create intelligent summary
+            const messageGroups = this.groupSimilarMessages(messages);
+            
+            if (messageGroups.size === 1) {
+                // All messages are similar
+                const [groupKey, groupData] = messageGroups.entries().next().value;
+                displayMessage = `${groupData.representative.message} (${count}x)`;
+                displayDescription = count > 1 ? `${count} similar notifications received` : groupData.representative.description;
+            } else {
+                // Mixed messages - use semantic grouping
+                const semanticGroup = this.getSemanticGroup(signature);
+                displayMessage = `${count} ${semanticGroup || type} notifications`;
+                
+                // Show top 3 unique messages
+                const uniqueMessages = Array.from(messageGroups.keys()).slice(0, 3);
+                displayDescription = uniqueMessages.join('\n');
+                if (messageGroups.size > 3) {
+                    displayDescription += `\n... and ${messageGroups.size - 3} more types`;
+                }
+            }
+            
+            // Longer duration for batched notifications
+            displayDuration = Math.max(this.toastAutoHideDelay, count * 1500);
+        }
+        
+        // Show the coalesced notification
+        const toastId = this.showImmediateToast(displayMessage, type, displayDescription, displayDuration);
+        
+        // Track this notification
+        this.lastShown.set(signature, Date.now());
+        
+        // Clean up
+        this.coalescingQueue.delete(signature);
+        this.coalescingTimers.delete(signature);
+        
+        return toastId;
+    }
+    
+    groupSimilarMessages(messages) {
+        const groups = new Map();
+        
+        messages.forEach(msg => {
+            // Normalize message for grouping (remove numbers, timestamps, etc.)
+            const normalizedKey = msg.message.toLowerCase()
+                .replace(/\d+/g, 'N')
+                .replace(/\b(at|on)\s+[\d:]+/g, 'at TIME')
+                .trim();
+            
+            if (!groups.has(normalizedKey)) {
+                groups.set(normalizedKey, {
+                    representative: msg,
+                    count: 0,
+                    messages: []
+                });
+            }
+            
+            const group = groups.get(normalizedKey);
+            group.count++;
+            group.messages.push(msg);
+        });
+        
+        return groups;
+    }
+    
+    getSemanticGroup(signature) {
+        const [type, group] = signature.split(':');
+        const groupLabels = {
+            'connectivity': 'connection',
+            'sensors': 'sensor',
+            'errors': 'error',
+            'permissions': 'permission'
+        };
+        return groupLabels[group] || type;
+    }
+
+    showImmediateToast(message, type = 'info', description = null, duration = 5000) {
         // Use Toastify.js for better toast notifications
         const iconMap = {
             success: '✅',
@@ -325,6 +610,34 @@ class UltiBikerDashboard {
 
         // Server permission status
         this.serverPermissions = null;
+        this.lastPermissionState = null;
+        this.permissionNotificationCount = 0;
+        
+        // Circuit breaker for server requests
+        this.circuitBreaker = {
+            state: 'CLOSED', // CLOSED, OPEN, HALF_OPEN
+            failureCount: 0,
+            failureThreshold: 3,
+            timeout: 30000, // 30 seconds
+            lastFailureTime: null,
+            currentDelay: 15000, // Current polling delay
+            baseDelay: 15000, // Base polling delay
+            maxDelay: 300000, // Max 5 minutes
+            backoffMultiplier: 2,
+            lastErrorNotification: 0,
+            errorNotificationCooldown: 60000 // 1 minute between error notifications
+        };
+        
+        // Connectivity monitoring
+        this.connectivity = {
+            isOnline: navigator.onLine,
+            serverConnected: false,
+            internetBarDismissed: false,
+            serverBarDismissed: false,
+            lastServerCheck: 0,
+            reconnectAttempts: 0,
+            maxReconnectAttempts: 5
+        };
 
         // Screen and layout management
         this.screenHeight = window.innerHeight;
@@ -384,6 +697,9 @@ class UltiBikerDashboard {
         // Set up user activity tracking for idle detection
         this.setupUserActivityTracking();
         
+        // Initialize connectivity monitoring
+        this.setupConnectivityMonitoring();
+        
         // Check permissions after initialization (both browser and server)
         setTimeout(() => {
             this.checkPermissions(); // Browser permissions
@@ -408,6 +724,10 @@ class UltiBikerDashboard {
             console.log('🔌 Connected to UltiBiker server');
             this.updateConnectionStatus('connected');
             
+            // Update connectivity monitoring
+            this.connectivity.serverConnected = true;
+            this.updateServerStatus();
+            
             // Subscribe to events when we connect
             this.subscribeToEvents();
         });
@@ -415,6 +735,11 @@ class UltiBikerDashboard {
         this.socket.on('disconnect', () => {
             console.log('🔌 Disconnected from UltiBiker server');
             this.updateConnectionStatus('disconnected');
+            
+            // Update connectivity monitoring
+            this.connectivity.serverConnected = false;
+            this.updateServerStatus();
+            
             errorHandler.handleConnectionError(() => {
                 window.location.reload();
             });
@@ -440,6 +765,12 @@ class UltiBikerDashboard {
                 this.updateLiveDeviceCount();
                 this.updateDeviceStatusDisplay();
             }
+        });
+
+        // Handle intelligent notifications from notification manager
+        this.socket.on('intelligent-notification', (notification) => {
+            console.log('🔔 Intelligent notification received:', notification);
+            this.handleIntelligentNotification(notification);
         });
 
         // Backward compatibility for device-discovered events
@@ -1403,6 +1734,16 @@ class UltiBikerDashboard {
         const confidenceInfo = device.confidence && device.confidence < 100 ? 
             `<span class="badge bg-warning text-dark ms-1" title="Identification Confidence">${device.confidence}%</span>` : '';
         
+        // Cycling relevance badge
+        const getCyclingRelevanceBadge = (relevance) => {
+            if (!relevance || relevance === 0) return '';
+            if (relevance >= 90) return `<span class="badge bg-success me-1" title="High cycling relevance">🚴 High</span>`;
+            if (relevance >= 60) return `<span class="badge bg-warning text-dark me-1" title="Medium cycling relevance">🚴 Medium</span>`;
+            if (relevance >= 30) return `<span class="badge bg-info me-1" title="Low cycling relevance">🚴 Low</span>`;
+            return `<span class="badge bg-light text-dark me-1" title="Unknown cycling relevance">🚴 Unknown</span>`;
+        };
+        const cyclingRelevanceInfo = getCyclingRelevanceBadge(device.cyclingRelevance);
+        
         div.innerHTML = `
             <div class="d-flex justify-content-between align-items-center w-100">
                 <div class="flex-grow-1">
@@ -1412,6 +1753,7 @@ class UltiBikerDashboard {
                         ${confidenceInfo}
                     </div>
                     <div class="d-flex align-items-center flex-wrap mb-1">
+                        ${cyclingRelevanceInfo}
                         ${manufacturerInfo}
                         ${categoryInfo}
                     </div>
@@ -1643,6 +1985,61 @@ class UltiBikerDashboard {
         if (status === 'connected' || status === 'disconnected') {
             this.checkServerPermissions();
         }
+    }
+
+    handleIntelligentNotification(notification) {
+        // Handle intelligent notifications from the notification manager
+        if (!notification) return;
+        
+        console.log('🔔 Processing intelligent notification:', notification);
+        
+        // Handle batched notifications
+        if (notification.type === 'batch') {
+            this.handleBatchedNotification(notification);
+        } else {
+            // Handle individual notifications
+            this.handleSingleNotification(notification);
+        }
+    }
+
+    handleBatchedNotification(batchNotification) {
+        const { batchType, count, summary, items, priority } = batchNotification;
+        
+        // Determine notification type based on batch type and priority
+        let notificationType = 'info';
+        if (priority >= 8) notificationType = 'error';
+        else if (priority >= 6) notificationType = 'warning';
+        else if (batchType === 'device-connection') notificationType = 'success';
+        
+        // Show batched notification with summary
+        this.showNotification(summary, notificationType, {
+            duration: 8000, // Longer duration for batched notifications
+            details: items.length > 1 ? `${items.length} related events` : null
+        });
+        
+        // Log individual items for debugging
+        console.log(`📦 Batch notification processed: ${summary}`, items);
+    }
+
+    handleSingleNotification(notification) {
+        const { type, priority, message, deviceName, data } = notification;
+        
+        // Determine notification type based on priority and type
+        let notificationType = 'info';
+        if (type === 'error' || priority >= 8) {
+            notificationType = 'error';
+        } else if (type === 'warning' || priority >= 6) {
+            notificationType = 'warning';
+        } else if (type === 'device-connection') {
+            notificationType = 'success';
+        }
+        
+        // Show the notification
+        this.showNotification(message, notificationType, {
+            duration: type === 'error' ? 10000 : 6000
+        });
+        
+        console.log(`🔔 Single notification processed: ${message} (priority: ${priority})`);
     }
 
     // Session Management
@@ -2592,8 +2989,135 @@ class UltiBikerDashboard {
         }
     }
 
+    shouldAttemptRequest() {
+        const breaker = this.circuitBreaker;
+        const now = Date.now();
+        
+        switch (breaker.state) {
+            case 'CLOSED':
+                return true;
+            case 'OPEN':
+                if (now - breaker.lastFailureTime >= breaker.timeout) {
+                    breaker.state = 'HALF_OPEN';
+                    console.log('🔄 Circuit breaker transitioning to HALF_OPEN');
+                    return true;
+                }
+                return false;
+            case 'HALF_OPEN':
+                return true;
+            default:
+                return true;
+        }
+    }
+    
+    onRequestSuccess() {
+        const breaker = this.circuitBreaker;
+        if (breaker.state === 'HALF_OPEN' || breaker.failureCount > 0) {
+            console.log('✅ Server connection restored, resetting circuit breaker');
+            breaker.state = 'CLOSED';
+            breaker.failureCount = 0;
+            breaker.currentDelay = breaker.baseDelay;
+            this.updatePollingInterval();
+            
+            // Update connectivity status
+            this.connectivity.serverConnected = true;
+            this.updateServerStatus();
+        }
+    }
+    
+    onRequestFailure(error) {
+        const breaker = this.circuitBreaker;
+        const now = Date.now();
+        
+        breaker.failureCount++;
+        breaker.lastFailureTime = now;
+        
+        if (breaker.state === 'HALF_OPEN') {
+            breaker.state = 'OPEN';
+            console.log('❌ Circuit breaker opened - server still unavailable');
+        } else if (breaker.failureCount >= breaker.failureThreshold) {
+            breaker.state = 'OPEN';
+            console.log(`❌ Circuit breaker opened after ${breaker.failureCount} failures`);
+        }
+        
+        // Implement exponential backoff
+        if (breaker.state === 'OPEN') {
+            breaker.currentDelay = Math.min(
+                breaker.currentDelay * breaker.backoffMultiplier,
+                breaker.maxDelay
+            );
+            this.updatePollingInterval();
+            console.log(`⏳ Polling interval increased to ${breaker.currentDelay / 1000}s`);
+            
+            // Update connectivity status when circuit breaker opens
+            this.connectivity.serverConnected = false;
+            this.updateServerStatus();
+        }
+        
+        // Only show error notifications with cooldown
+        if (now - breaker.lastErrorNotification >= breaker.errorNotificationCooldown) {
+            breaker.lastErrorNotification = now;
+            return true; // Show error notification
+        }
+        return false; // Skip error notification
+    }
+    
+    updatePollingInterval() {
+        // Update the permission checking intervals with new delay
+        if (this.permissionUpdateInterval) {
+            clearInterval(this.permissionUpdateInterval);
+            this.permissionUpdateInterval = setInterval(() => {
+                this.checkServerPermissions();
+            }, this.circuitBreaker.currentDelay);
+        }
+        
+        if (this.autoPermissionCheckInterval) {
+            clearInterval(this.autoPermissionCheckInterval);
+            this.autoPermissionCheckInterval = setInterval(() => {
+                if (this.autoScanEnabled && this.currentTab === 'devices') {
+                    this.checkServerPermissions();
+                }
+            }, Math.max(this.circuitBreaker.currentDelay * 0.7, 10000)); // Slightly more frequent for active tab
+        }
+    }
+
+    hasPermissionStateChanged(newPermissions) {
+        if (!this.lastPermissionState) {
+            return true; // First check, always show
+        }
+        
+        const lastState = this.lastPermissionState;
+        
+        // Check Bluetooth permission changes
+        const bluetoothChanged = 
+            newPermissions.bluetooth?.granted !== lastState.bluetooth?.granted ||
+            newPermissions.bluetooth?.denied !== lastState.bluetooth?.denied ||
+            newPermissions.bluetooth?.requiresUserAction !== lastState.bluetooth?.requiresUserAction;
+            
+        // Check USB permission changes
+        const usbChanged = 
+            newPermissions.usb?.granted !== lastState.usb?.granted ||
+            newPermissions.usb?.denied !== lastState.usb?.denied;
+        
+        return bluetoothChanged || usbChanged;
+    }
+
     async checkServerPermissions() {
-        console.log('🔒 Checking server device permissions...');
+        // Check circuit breaker before attempting request
+        if (!this.shouldAttemptRequest()) {
+            // Only log when circuit breaker is preventing requests every 10th attempt
+            if (this.permissionNotificationCount % 10 === 0) {
+                console.log(`🔒 Circuit breaker ${this.circuitBreaker.state} - skipping server check`);
+            }
+            this.permissionNotificationCount++;
+            return;
+        }
+        
+        // Only log every 10th check to reduce spam
+        if (this.permissionNotificationCount % 10 === 0) {
+            console.log('🔒 Checking server device permissions...');
+        }
+        this.permissionNotificationCount++;
         
         try {
             const response = await fetch('/api/permissions/status');
@@ -2602,16 +3126,34 @@ class UltiBikerDashboard {
             }
             
             const result = await response.json();
-            console.log('🔒 Server permission status received:', result);
+            const newPermissions = result.data?.permissions || result.permissions;
             
-            // Store server permissions for device status display
-            this.serverPermissions = result.data?.permissions || result.permissions;
+            // Request succeeded - notify circuit breaker
+            this.onRequestSuccess();
             
-            this.updatePermissionDisplay(result);
-            this.updateDeviceStatusDisplay(); // Update device indicators with real status
+            // Only update if permissions have actually changed
+            if (this.hasPermissionStateChanged(newPermissions)) {
+                console.log('🔒 Permission state changed, updating display:', newPermissions);
+                
+                // Store server permissions for device status display
+                this.serverPermissions = newPermissions;
+                this.lastPermissionState = JSON.parse(JSON.stringify(newPermissions)); // Deep copy
+                
+                this.updatePermissionDisplay(result);
+                this.updateDeviceStatusDisplay(); // Update device indicators with real status
+            } else {
+                // Still update serverPermissions for other components that rely on it
+                this.serverPermissions = newPermissions;
+            }
         } catch (error) {
             console.error('❌ Failed to check server permissions:', error);
-            this.showPermissionError('Unable to check device permissions. Please ensure the server is running.');
+            
+            // Handle failure through circuit breaker
+            const shouldShowError = this.onRequestFailure(error);
+            
+            if (shouldShowError) {
+                this.showPermissionError('Unable to check device permissions. Server connection issues detected.');
+            }
         }
     }
 
@@ -2740,12 +3282,12 @@ class UltiBikerDashboard {
     }
 
     startPermissionStatusUpdates() {
-        // Check permission status every 15 seconds to keep status indicators accurate
+        // Check permission status with circuit breaker delay
         this.permissionUpdateInterval = setInterval(() => {
             this.checkServerPermissions();
-        }, 15000);
+        }, this.circuitBreaker.currentDelay);
 
-        console.log('🔄 Started periodic permission status updates');
+        console.log(`🔄 Started periodic permission status updates (${this.circuitBreaker.currentDelay / 1000}s interval)`);
     }
 
     stopPermissionStatusUpdates() {
@@ -2773,6 +3315,192 @@ class UltiBikerDashboard {
     
     isUserIdle() {
         return (Date.now() - this.lastUserActivity) > this.idleThreshold;
+    }
+    
+    // Connectivity Monitoring
+    setupConnectivityMonitoring() {
+        // Set up internet connectivity monitoring
+        window.addEventListener('online', () => {
+            console.log('🌐 Internet connection restored');
+            this.connectivity.isOnline = true;
+            this.updateInternetStatus();
+        });
+        
+        window.addEventListener('offline', () => {
+            console.log('🌐 Internet connection lost');
+            this.connectivity.isOnline = false;
+            this.updateInternetStatus();
+        });
+        
+        // Set up connectivity status bar event handlers
+        this.setupConnectivityBarHandlers();
+        
+        // Initial status check
+        this.updateInternetStatus();
+        this.updateServerStatus();
+        
+        console.log('🔗 Connectivity monitoring initialized');
+    }
+    
+    setupConnectivityBarHandlers() {
+        // Internet bar dismiss button
+        const dismissInternetBtn = document.getElementById('dismissInternetBar');
+        if (dismissInternetBtn) {
+            dismissInternetBtn.addEventListener('click', () => {
+                this.dismissInternetBar();
+            });
+        }
+        
+        // Server bar dismiss button
+        const dismissServerBtn = document.getElementById('dismissServerBar');
+        if (dismissServerBtn) {
+            dismissServerBtn.addEventListener('click', () => {
+                this.dismissServerBar();
+            });
+        }
+        
+        // Reconnect button
+        const reconnectBtn = document.getElementById('reconnectServer');
+        if (reconnectBtn) {
+            reconnectBtn.addEventListener('click', () => {
+                this.attemptServerReconnect();
+            });
+        }
+    }
+    
+    updateInternetStatus() {
+        const internetBar = document.getElementById('internetStatusBar');
+        const internetText = document.getElementById('internetStatusText');
+        
+        if (!this.connectivity.isOnline && !this.connectivity.internetBarDismissed) {
+            // Show offline bar
+            if (internetText) {
+                internetText.textContent = 'No internet connection - Some features may be limited';
+            }
+            this.showConnectivityBar(internetBar);
+        } else if (this.connectivity.isOnline) {
+            // Hide offline bar when online
+            this.connectivity.internetBarDismissed = false; // Reset dismissal
+            this.hideConnectivityBar(internetBar);
+        }
+    }
+    
+    updateServerStatus() {
+        const serverBar = document.getElementById('serverStatusBar');
+        const serverText = document.getElementById('serverStatusText');
+        const reconnectBtn = document.getElementById('reconnectServer');
+        
+        if (!this.connectivity.serverConnected && !this.connectivity.serverBarDismissed) {
+            // Show disconnected bar
+            if (serverText) {
+                if (this.connectivity.reconnectAttempts > 0) {
+                    serverText.textContent = `Reconnecting to server... (attempt ${this.connectivity.reconnectAttempts}/${this.connectivity.maxReconnectAttempts})`;
+                    serverBar.classList.add('reconnecting');
+                    if (reconnectBtn) {
+                        reconnectBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Reconnecting...';
+                        reconnectBtn.disabled = true;
+                    }
+                } else {
+                    serverText.textContent = 'Disconnected from UltiBiker server - Sensor data unavailable';
+                    serverBar.classList.remove('reconnecting');
+                    if (reconnectBtn) {
+                        reconnectBtn.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Reconnect';
+                        reconnectBtn.disabled = false;
+                    }
+                }
+            }
+            this.showConnectivityBar(serverBar);
+        } else if (this.connectivity.serverConnected) {
+            // Hide disconnected bar when connected
+            this.connectivity.serverBarDismissed = false; // Reset dismissal
+            this.connectivity.reconnectAttempts = 0; // Reset attempts
+            this.hideConnectivityBar(serverBar);
+        }
+    }
+    
+    showConnectivityBar(barElement) {
+        if (!barElement) return;
+        
+        barElement.classList.remove('d-none', 'hiding');
+        // Trigger reflow to ensure animation plays
+        barElement.offsetHeight;
+    }
+    
+    hideConnectivityBar(barElement) {
+        if (!barElement || barElement.classList.contains('d-none')) return;
+        
+        barElement.classList.add('hiding');
+        setTimeout(() => {
+            barElement.classList.add('d-none');
+            barElement.classList.remove('hiding');
+        }, 300); // Match animation duration
+    }
+    
+    dismissInternetBar() {
+        const internetBar = document.getElementById('internetStatusBar');
+        this.connectivity.internetBarDismissed = true;
+        this.hideConnectivityBar(internetBar);
+        
+        // Auto-show again after 5 minutes if still offline
+        setTimeout(() => {
+            if (!this.connectivity.isOnline) {
+                this.connectivity.internetBarDismissed = false;
+                this.updateInternetStatus();
+            }
+        }, 300000); // 5 minutes
+    }
+    
+    dismissServerBar() {
+        const serverBar = document.getElementById('serverStatusBar');
+        this.connectivity.serverBarDismissed = true;
+        this.hideConnectivityBar(serverBar);
+        
+        // Auto-show again after 2 minutes if still disconnected
+        setTimeout(() => {
+            if (!this.connectivity.serverConnected) {
+                this.connectivity.serverBarDismissed = false;
+                this.updateServerStatus();
+            }
+        }, 120000); // 2 minutes
+    }
+    
+    async attemptServerReconnect() {
+        if (this.connectivity.reconnectAttempts >= this.connectivity.maxReconnectAttempts) {
+            console.log('🔗 Max reconnection attempts reached');
+            return;
+        }
+        
+        this.connectivity.reconnectAttempts++;
+        this.updateServerStatus(); // Update UI to show reconnecting state
+        
+        try {
+            // Force socket reconnection
+            if (this.socket) {
+                this.socket.disconnect();
+                setTimeout(() => {
+                    this.socket.connect();
+                }, 1000);
+            }
+            
+            // Also try a direct server health check
+            const response = await fetch('/health');
+            if (response.ok) {
+                console.log('🔗 Server reconnection successful');
+                this.connectivity.serverConnected = true;
+                this.connectivity.reconnectAttempts = 0;
+                this.updateServerStatus();
+            }
+        } catch (error) {
+            console.log(`🔗 Reconnection attempt ${this.connectivity.reconnectAttempts} failed:`, error);
+            
+            if (this.connectivity.reconnectAttempts >= this.connectivity.maxReconnectAttempts) {
+                // Reset after 5 minutes
+                setTimeout(() => {
+                    this.connectivity.reconnectAttempts = 0;
+                    this.updateServerStatus();
+                }, 300000);
+            }
+        }
     }
     
     startAutoScanning() {
@@ -2858,12 +3586,13 @@ class UltiBikerDashboard {
         
         console.log('🔒 Starting continuous permission checking');
         
-        // Check permissions every 10 seconds when on devices tab
+        // Check permissions with circuit breaker aware interval when on devices tab
+        const interval = Math.max(this.circuitBreaker.currentDelay * 0.7, 10000);
         this.autoPermissionCheckInterval = setInterval(() => {
             if (this.autoScanEnabled && this.currentTab === 'devices') {
                 this.checkServerPermissions();
             }
-        }, 10000);
+        }, interval);
     }
     
     stopAutoPermissionChecking() {

@@ -258,6 +258,11 @@ export class SocketHandler {
     this.sensorManager.on('sensor-data', (event) => {
       this.broadcastSensorData(event);
     });
+
+    // Handle intelligent notifications from notification manager
+    this.sensorManager.on('intelligent-notification', (notification) => {
+      this.broadcastIntelligentNotification(notification);
+    });
   }
 
   // Method to broadcast sensor data to subscribed clients
@@ -284,6 +289,15 @@ export class SocketHandler {
     for (const [clientId, client] of this.connectedClients) {
       if (client.subscribedEvents.has('device-events')) {
         client.socket.emit('device-event', deviceEvent);
+      }
+    }
+  }
+
+  // Method to broadcast intelligent notifications
+  broadcastIntelligentNotification(notification: any): void {
+    for (const [clientId, client] of this.connectedClients) {
+      if (client.subscribedEvents.has('device-events')) {
+        client.socket.emit('intelligent-notification', notification);
       }
     }
   }

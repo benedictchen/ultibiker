@@ -1,5 +1,5 @@
 // Sensor type definitions
-export type SensorType = 'heart_rate' | 'power' | 'cadence' | 'speed' | 'trainer';
+export type SensorType = 'heart_rate' | 'power' | 'cadence' | 'speed' | 'trainer' | 'unknown';
 export type Protocol = 'ant_plus' | 'bluetooth';
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';
 
@@ -13,6 +13,7 @@ export interface SensorDevice {
   signalStrength: number;
   batteryLevel?: number;
   manufacturer?: string;
+  cyclingRelevance?: number; // 0-100 score for sorting by cycling relevance
   model?: string;
   category?: string;
   firmwareVersion?: string;

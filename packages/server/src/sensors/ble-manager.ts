@@ -264,47 +264,142 @@ export class BLEManager extends EventEmitter {
     
     console.log(`🔍 BLE device found: ${localName || 'Unknown'} (${id}) RSSI: ${rssi}dBm Services: [${serviceUuids.join(', ')}]`);
     
-    // Basic device identification (simplified for now)
-    const deviceType = this.identifyDeviceType(serviceUuids) || this.identifyDeviceTypeByName(localName || '');
-    
-    // Filter out devices that aren't cycling-related
-    if (!deviceType && !this.isPotentialCyclingDevice(localName || '', serviceUuids)) {
-      console.log(`⚠️ Ignoring device ${localName || 'Unknown'} - not cycling-related`);
-      return;
-    }
-    
     // Store the peripheral for later connection
     this.discoveredDevices.set(id, peripheral);
+    
+    // Basic device identification
+    const deviceType = this.identifyDeviceType(serviceUuids) || this.identifyDeviceTypeByName(localName || '');
+    const cyclingRelevance = this.calculateCyclingRelevance(localName || '', serviceUuids, deviceType);
     
     const device: SensorDevice = {
       deviceId: id,
       name: localName || `BLE Device ${id.slice(-4)}`,
-      type: deviceType || 'heart_rate',
+      type: deviceType || 'unknown',
       protocol: 'bluetooth',
       isConnected: false,
       signalStrength: this.calculateSignalStrength(rssi),
-      manufacturer: 'Unknown'
+      manufacturer: this.identifyManufacturer(localName || ''),
+      cyclingRelevance // Add relevance score for sorting
     };
     
-    console.log(`✅ Discovered: ${device.name} | ${device.manufacturer || 'Unknown'} | Type: ${device.type} | Signal: ${device.signalStrength}%`);
+    const relevanceLabel = cyclingRelevance >= 90 ? 'High' : cyclingRelevance >= 60 ? 'Medium' : cyclingRelevance >= 30 ? 'Low' : 'Unknown';
+    console.log(`✅ Discovered: ${device.name} | ${device.manufacturer || 'Unknown'} | Type: ${device.type} | Signal: ${device.signalStrength}% | Cycling: ${relevanceLabel}`);
     this.emit('device-discovered', device);
   }
 
-  private isPotentialCyclingDevice(deviceName: string, serviceUuids: string[]): boolean {
-    // Check if device has cycling-related indicators
-    const cyclingIndicators = [
-      'heart', 'hr', 'power', 'cadence', 'speed', 'trainer', 'cycling',
-      'polar', 'wahoo', 'garmin', 'stages', 'quarq', 'kickr', 'tacx'
-    ];
-    
+  private calculateCyclingRelevance(deviceName: string, serviceUuids: string[], deviceType: SensorType | null): number {
+    let score = 0;
     const name = deviceName.toLowerCase();
-    const hasNameIndicator = cyclingIndicators.some(indicator => name.includes(indicator));
     
-    const hasCyclingService = serviceUuids.some(service => 
-      ['180d', '1818', '1816', '1826'].includes(service.replace(/-/g, '').substring(4, 8))
-    );
+    // High relevance - Definitive cycling sensors (90-100 points)
+    if (deviceType && deviceType !== 'unknown') {
+      score += 90; // Has identified cycling sensor type
+    }
     
-    return hasNameIndicator || hasCyclingService;
+    // Service UUID indicators (40-80 points)
+    const cyclingServiceScores = {
+      '180d': 80, // Heart Rate Service
+      '1818': 90, // Cycling Power Service  
+      '1816': 85, // Cycling Speed and Cadence
+      '1826': 95, // Fitness Machine Service (trainers)
+      '180f': 20, // Battery Service (common in cycling devices)
+      '180a': 15  // Device Information (common)
+    };
+    
+    serviceUuids.forEach(service => {
+      const cleanService = service.replace(/-/g, '').substring(4, 8).toLowerCase();
+      if (cyclingServiceScores[cleanService]) {
+        score = Math.max(score, cyclingServiceScores[cleanService]);
+      }
+    });
+    
+    // Brand/manufacturer indicators (60-80 points)
+    const premiumBrands = ['polar', 'garmin', 'wahoo', 'stages', 'quarq', 'kickr', 'tacx', 'elite'];
+    const cyclingBrands = ['4iiii', 'rotor', 'sram', 'shimano', 'campagnolo', 'pioneer', 'powertap'];
+    
+    if (premiumBrands.some(brand => name.includes(brand))) {
+      score = Math.max(score, 75);
+    } else if (cyclingBrands.some(brand => name.includes(brand))) {
+      score = Math.max(score, 65);
+    }
+    
+    // Device type indicators in name (50-70 points)
+    const deviceTypeIndicators = {
+      'power': 70, 'watt': 70,
+      'heart': 65, 'hr': 60, 'bpm': 60,
+      'cadence': 65, 'rpm': 55,
+      'speed': 55, 'velocity': 50,
+      'trainer': 80, 'turbo': 70,
+      'cycling': 60, 'bike': 50, 'cycle': 50
+    };
+    
+    Object.entries(deviceTypeIndicators).forEach(([indicator, points]) => {
+      if (name.includes(indicator)) {
+        score = Math.max(score, points);
+      }
+    });
+    
+    // Common non-cycling devices (reduce score)
+    const nonCyclingIndicators = ['airpods', 'phone', 'watch', 'tv', 'speaker', 'mouse', 'keyboard', 'printer'];
+    if (nonCyclingIndicators.some(indicator => name.includes(indicator))) {
+      score = Math.max(0, score - 40);
+    }
+    
+    // Generic/unknown devices get low score
+    if (name === 'unknown' || name === '' || name.startsWith('ble device')) {
+      score = Math.max(score, 10);
+    }
+    
+    return Math.min(100, Math.max(0, score));
+  }
+  
+  private identifyManufacturer(deviceName: string): string {
+    const name = deviceName.toLowerCase();
+    
+    // Well-known cycling brands
+    const manufacturers = {
+      'polar': 'Polar',
+      'garmin': 'Garmin', 
+      'wahoo': 'Wahoo Fitness',
+      'stages': 'Stages Cycling',
+      'quarq': 'SRAM (Quarq)',
+      'kickr': 'Wahoo Fitness',
+      'tacx': 'Tacx',
+      'elite': 'Elite',
+      '4iiii': '4iiii Innovations',
+      'rotor': 'Rotor',
+      'pioneer': 'Pioneer',
+      'powertap': 'PowerTap',
+      'shimano': 'Shimano',
+      'campagnolo': 'Campagnolo',
+      'sram': 'SRAM',
+      'suunto': 'Suunto',
+      'cateye': 'CatEye',
+      'bryton': 'Bryton',
+      'lezyne': 'Lezyne',
+      'giant': 'Giant',
+      'trek': 'Trek',
+      'specialized': 'Specialized',
+      'cannondale': 'Cannondale'
+    };
+    
+    for (const [key, manufacturer] of Object.entries(manufacturers)) {
+      if (name.includes(key)) {
+        return manufacturer;
+      }
+    }
+    
+    // Apple devices
+    if (name.includes('airpods') || name.includes('iphone') || name.includes('ipad') || name.includes('apple')) {
+      return 'Apple';
+    }
+    
+    // Generic patterns
+    if (name.includes('samsung')) return 'Samsung';
+    if (name.includes('sony')) return 'Sony';
+    if (name.includes('bose')) return 'Bose';
+    
+    return 'Unknown';
   }
   
   private identifyDeviceType(serviceUuids: string[]): SensorType | null {

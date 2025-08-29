@@ -10,6 +10,7 @@ import { ANTManager } from './ant-manager.js';
 import { BLEManager } from './ble-manager.js';
 import { DataParser } from './data-parser.js';
 import { PermissionManager } from '../services/permission-manager.js';
+import { IntelligentNotificationManager, SensorNotification } from '../services/notification-manager.js';
 import { logger } from '../utils/logger.js';
 
 export class UltiBikerSensorManager extends EventEmitter implements SensorManager {
@@ -17,6 +18,7 @@ export class UltiBikerSensorManager extends EventEmitter implements SensorManage
   private bleManager: BLEManager;
   private dataParser: DataParser;
   private permissionManager: PermissionManager;
+  private notificationManager: IntelligentNotificationManager;
   private connectedDevices = new Map<string, SensorDevice>();
   private discoveredDevices = new Map<string, SensorDevice>();
   private isScanning = false;
@@ -32,6 +34,9 @@ export class UltiBikerSensorManager extends EventEmitter implements SensorManage
     this.dataParser = new DataParser();
     this.permissionManager = new PermissionManager();
     
+    // Initialize intelligent notification manager
+    this.notificationManager = new IntelligentNotificationManager();
+    
     // Inject session manager if provided
     if (sessionManager) {
       this.sessionManager = sessionManager;
@@ -39,6 +44,14 @@ export class UltiBikerSensorManager extends EventEmitter implements SensorManage
     }
 
     this.setupEventHandlers();
+    this.setupNotificationHandlers();
+  }
+
+  private setupNotificationHandlers(): void {
+    // Forward processed notifications to WebSocket clients
+    this.notificationManager.on('notification', (notification) => {
+      this.emit('intelligent-notification', notification);
+    });
   }
 
   private setupEventHandlers(): void {
@@ -246,7 +259,23 @@ export class UltiBikerSensorManager extends EventEmitter implements SensorManage
   }
 
   getDiscoveredDevices(): SensorDevice[] {
-    return Array.from(this.discoveredDevices.values());
+    return Array.from(this.discoveredDevices.values())
+      .sort((a, b) => {
+        // Primary sort: cycling relevance (highest first) - most relevant cycling devices at top
+        const relevanceA = (a as any).cyclingRelevance || 0;
+        const relevanceB = (b as any).cyclingRelevance || 0;
+        if (relevanceA !== relevanceB) {
+          return relevanceB - relevanceA;
+        }
+        
+        // Secondary sort: signal strength (strongest first) - closest devices next
+        if (a.signalStrength !== b.signalStrength) {
+          return b.signalStrength - a.signalStrength;
+        }
+        
+        // Tertiary sort: alphabetical by name for consistent ordering
+        return a.name.localeCompare(b.name);
+      });
   }
 
   async getPermissionStatus() {
@@ -283,6 +312,15 @@ export class UltiBikerSensorManager extends EventEmitter implements SensorManage
       signalStrength: device.signalStrength
     });
 
+    // Create intelligent notification for device discovery
+    const notification = this.notificationManager.createDeviceDiscoveryNotification(
+      device.name,
+      device.type,
+      device.signalStrength
+    );
+    this.notificationManager.processNotification(notification);
+
+    // Still emit the original event for WebSocket clients expecting it
     this.emit('scan-result', {
       type: 'scan-result',
       device
@@ -307,6 +345,13 @@ export class UltiBikerSensorManager extends EventEmitter implements SensorManage
       signalStrength: device.signalStrength
     });
 
+    // Create intelligent notification for device connection
+    const notification = this.notificationManager.createDeviceConnectionNotification(
+      device.name,
+      'connected'
+    );
+    this.notificationManager.processNotification(notification);
+
     this.emit('device-status', {
       type: 'device-status',
       deviceId: device.deviceId,
@@ -321,6 +366,13 @@ export class UltiBikerSensorManager extends EventEmitter implements SensorManage
       device.isConnected = false;
       this.connectedDevices.delete(deviceId);
       console.log(`🔌 Disconnected: ${device.name}`);
+
+      // Create intelligent notification for device disconnection
+      const notification = this.notificationManager.createDeviceConnectionNotification(
+        device.name,
+        'disconnected'
+      );
+      this.notificationManager.processNotification(notification);
 
       this.emit('device-status', {
         type: 'device-status',

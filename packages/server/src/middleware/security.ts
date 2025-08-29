@@ -99,7 +99,7 @@ export function setupSecurityMiddleware(app: Application, config: SecurityConfig
   // 4. Rate Limiting
   const rateLimitOptions = {
     windowMs: config.rateLimit?.windowMs || 15 * 60 * 1000, // 15 minutes
-    max: config.rateLimit?.max || 100, // Limit each IP to 100 requests per windowMs
+    max: config.rateLimit?.max || 1000, // Limit each IP to 1000 requests per windowMs (increased for debugging)
     message: {
       error: 'Too many requests from this IP, please try again later.',
       retryAfter: '15 minutes'

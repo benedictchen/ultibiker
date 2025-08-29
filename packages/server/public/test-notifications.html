@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UltiBiker - Notification Batching Test</title>
+    
+    <!-- Local Assets - No CDN Dependencies -->
+    <link href="/assets/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/css/toastify.css" rel="stylesheet">
+    
+    <!-- JavaScript Libraries - Local -->
+    <script src="/assets/js/toastify.js"></script>
+    
+    <style>
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 2rem;
+        }
+        
+        .test-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .btn {
+            margin: 0.5rem;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 2rem;
+        }
+        
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Notification Batching Test</h1>
+        
+        <div class="test-section">
+            <h3>Single Notifications</h3>
+            <button class="btn btn-success" onclick="showSingle('success')">Success</button>
+            <button class="btn btn-danger" onclick="showSingle('error')">Error</button>
+            <button class="btn btn-warning" onclick="showSingle('warning')">Warning</button>
+            <button class="btn btn-info" onclick="showSingle('info')">Info</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Rapid Notifications (Same Type)</h3>
+            <button class="btn btn-success" onclick="showRapidSame('success', 5)">5x Success</button>
+            <button class="btn btn-danger" onclick="showRapidSame('error', 8)">8x Error</button>
+            <button class="btn btn-warning" onclick="showRapidSame('warning', 3)">3x Warning</button>
+            <button class="btn btn-primary" onclick="showRapidSame('info', 12)">12x Info (exceed batch)</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Mixed Type Notifications</h3>
+            <button class="btn btn-secondary" onclick="showMixed()">Mixed Notifications</button>
+            <button class="btn btn-secondary" onclick="showChaos()">Notification Chaos!</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Similar Messages</h3>
+            <button class="btn btn-primary" onclick="showSimilar()">Similar Messages</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Controls</h3>
+            <button class="btn btn-outline-secondary" onclick="clearBatches()">Clear All Batches</button>
+        </div>
+    </div>
+
+    <!-- Include error handler from dashboard.js -->
+    <script>
+        // Modern ErrorHandler with improved coalescing for testing
+        class ErrorHandler {
+            constructor() {
+                this.toastId = 0;
+                this.setupNotificationBatching();
+            }
+
+            setupNotificationBatching() {
+                // Modern notification coalescing system based on 2025 UX research
+                this.activeToasts = new Map(); // id -> toast reference
+                this.coalescingQueue = new Map(); // signature -> notification data
+                this.coalescingTimers = new Map(); // signature -> timer id
+                this.lastShown = new Map(); // signature -> timestamp
+                
+                // Configuration based on UX research
+                this.coalescingDelay = 800; // Optimal delay from UX research
+                this.duplicateSuppressionWindow = 5000; // 5s window to prevent duplicates
+                this.maxToastsVisible = 4; // Limit visible toasts (UX best practice)
+                this.toastAutoHideDelay = 6000; // Auto-hide delay
+                
+                // Message grouping patterns
+                this.messagePatterns = new Map(); // For intelligent grouping
+                this.setupCoalescingPatterns();
+            }
+
+            setupCoalescingPatterns() {
+                // Define common notification patterns for intelligent grouping
+                this.coalescingRules = [
+                    {
+                        name: 'connection',
+                        pattern: /connect|disconnect|link|unlink/i,
+                        group: 'connectivity',
+                        priority: 'high'
+                    },
+                    {
+                        name: 'sensor',
+                        pattern: /sensor|device|reading|data/i,
+                        group: 'sensors',
+                        priority: 'medium'
+                    },
+                    {
+                        name: 'error',
+                        pattern: /error|fail|problem|issue/i,
+                        group: 'errors',
+                        priority: 'high'
+                    },
+                    {
+                        name: 'permission',
+                        pattern: /permission|access|grant|deny/i,
+                        group: 'permissions',
+                        priority: 'high'
+                    }
+                ];
+            }
+
+            showToast(message, type = 'info', description = null, duration = 5000, skipCoalescing = false) {
+                if (skipCoalescing) {
+                    return this.showImmediateToast(message, type, description, duration);
+                }
+
+                return this.coalesceNotification(message, type, description, duration);
+            }
+
+            // Generate signature for notification coalescing
+            generateNotificationSignature(message, type, description) {
+                // Find matching pattern for intelligent grouping
+                const matchedRule = this.coalescingRules.find(rule => 
+                    rule.pattern.test(message) || (description && rule.pattern.test(description))
+                );
+                
+                if (matchedRule) {
+                    // Group by semantic meaning
+                    return `${type}:${matchedRule.group}`;
+                }
+                
+                // Fallback to exact message matching
+                const messageKey = message.toLowerCase().replace(/\\d+/g, 'N'); // Replace numbers
+                return `${type}:${messageKey}`;
+            }
+
+            addToBatch(message, type, description, duration) {
+                const batchKey = `${type}`;
+                const messageData = { message, description, duration, timestamp: Date.now() };
+
+                if (!this.notificationBatches.has(batchKey)) {
+                    this.notificationBatches.set(batchKey, {
+                        messages: [],
+                        timeout: null,
+                        type: type
+                    });
+                }
+
+                const batch = this.notificationBatches.get(batchKey);
+                batch.messages.push(messageData);
+
+                // Clear existing timeout
+                if (batch.timeout) {
+                    clearTimeout(batch.timeout);
+                }
+
+                // Show immediately if batch is full, otherwise delay
+                if (batch.messages.length >= this.maxBatchSize) {
+                    this.showBatchedToast(batchKey);
+                } else {
+                    batch.timeout = setTimeout(() => {
+                        this.showBatchedToast(batchKey);
+                    }, this.batchDelay);
+                }
+
+                return `batch-${batchKey}-${Date.now()}`;
+            }
+
+            showBatchedToast(batchKey) {
+                const batch = this.notificationBatches.get(batchKey);
+                if (!batch || batch.messages.length === 0) return;
+
+                const { type } = batch;
+                const messages = batch.messages;
+                const count = messages.length;
+
+                let displayMessage, displayDescription;
+
+                if (count === 1) {
+                    // Single message - show normally
+                    const msg = messages[0];
+                    displayMessage = msg.message;
+                    displayDescription = msg.description;
+                } else {
+                    // Multiple messages - create summary
+                    displayMessage = `${count} ${type} notifications`;
+                    
+                    // Group similar messages
+                    const messageGroups = {};
+                    messages.forEach(msg => {
+                        const key = msg.message;
+                        if (!messageGroups[key]) {
+                            messageGroups[key] = { count: 0, descriptions: [] };
+                        }
+                        messageGroups[key].count++;
+                        if (msg.description) {
+                            messageGroups[key].descriptions.push(msg.description);
+                        }
+                    });
+
+                    // Create description from groups
+                    const groupSummaries = Object.entries(messageGroups).map(([msg, data]) => {
+                        return data.count > 1 ? `${msg} (${data.count}x)` : msg;
+                    });
+
+                    displayDescription = groupSummaries.slice(0, 3).join('\n');
+                    if (groupSummaries.length > 3) {
+                        displayDescription += `\n... and ${groupSummaries.length - 3} more`;
+                    }
+                }
+
+                // Show the batched toast
+                this.showImmediateToast(displayMessage, type, displayDescription, Math.max(5000, count * 1000));
+
+                // Clear the batch
+                this.notificationBatches.delete(batchKey);
+            }
+
+            showImmediateToast(message, type = 'info', description = null, duration = 5000) {
+                // Use Toastify.js for better toast notifications
+                const iconMap = {
+                    success: '✅',
+                    error: '❌',
+                    warning: '⚠️',
+                    info: 'ℹ️'
+                };
+
+                const colorMap = {
+                    success: 'linear-gradient(to right, #00b09b, #96c93d)',
+                    error: 'linear-gradient(to right, #ff5f6d, #ffc371)',
+                    warning: 'linear-gradient(to right, #f093fb 0%, #f5576c 100%)',
+                    info: 'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)'
+                };
+
+                // Format message with icon and description
+                let displayText = `${iconMap[type]} ${message}`;
+                if (description) {
+                    displayText += `\n${description}`;
+                }
+
+                Toastify({
+                    text: displayText,
+                    duration: duration,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    stopOnFocus: true,
+                    style: {
+                        background: colorMap[type] || colorMap.info,
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+                    },
+                    onClick: function() {
+                        // Optional click handler
+                    }
+                }).showToast();
+
+                // Keep the toastId for compatibility
+                return `toastify-${++this.toastId}`;
+            }
+
+            clearBatches() {
+                // Clear all pending batches
+                this.notificationBatches.forEach(batch => {
+                    if (batch.timeout) {
+                        clearTimeout(batch.timeout);
+                    }
+                });
+                this.notificationBatches.clear();
+                console.log('All notification batches cleared');
+            }
+        }
+
+        // Initialize error handler
+        const errorHandler = new ErrorHandler();
+
+        // Test functions
+        function showSingle(type) {
+            console.log('Showing single notification:', type);
+            errorHandler.showToast(`This is a single ${type} notification`, type, 'No batching applied');
+        }
+
+        function showRapidSame(type, count) {
+            console.log(`Showing ${count} rapid ${type} notifications`);
+            for (let i = 0; i < count; i++) {
+                setTimeout(() => {
+                    console.log(`Firing notification ${i + 1}/${count}`);
+                    errorHandler.showToast(
+                        `${type.charAt(0).toUpperCase() + type.slice(1)} message ${i + 1}`,
+                        type,
+                        `This is rapid message #${i + 1} of ${count}`
+                    );
+                }, i * 50); // 50ms apart
+            }
+        }
+
+        function showMixed() {
+            const types = ['success', 'error', 'warning', 'info'];
+            types.forEach((type, index) => {
+                setTimeout(() => {
+                    errorHandler.showToast(
+                        `Mixed notification`,
+                        type,
+                        `This is a ${type} notification in the mix`
+                    );
+                }, index * 100);
+            });
+        }
+
+        function showChaos() {
+            const types = ['success', 'error', 'warning', 'info'];
+            const messages = [
+                'Connection established',
+                'Network error occurred',
+                'Low battery warning',
+                'Data received'
+            ];
+            
+            // Fire 20 random notifications rapidly
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => {
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    const message = messages[Math.floor(Math.random() * messages.length)];
+                    errorHandler.showToast(message, type, `Chaos notification #${i + 1}`);
+                }, i * 25);
+            }
+        }
+
+        function showSimilar() {
+            const messages = [
+                'Sensor connected',
+                'Sensor connected',
+                'Sensor connected',
+                'Sensor disconnected',
+                'Sensor disconnected',
+                'Data received',
+                'Data received',
+                'Data received',
+                'Data received'
+            ];
+            
+            messages.forEach((message, index) => {
+                setTimeout(() => {
+                    errorHandler.showToast(message, 'info', `Similar message #${index + 1}`);
+                }, index * 75);
+            });
+        }
+
+        function clearBatches() {
+            errorHandler.clearBatches();
+            errorHandler.showToast('Batches cleared', 'success', 'All pending notification batches have been cleared', 3000, true);
+        }
+
+        // Show welcome message
+        setTimeout(() => {
+            errorHandler.showToast('Welcome to the notification test', 'success', 'Try the buttons below to test batching behavior');
+        }, 500);
+    </script>
+</body>
+</html>
