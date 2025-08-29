@@ -1,0 +1,67 @@
+{
+  "buildTime": "2025-08-29T07:34:01.046Z",
+  "assets": {
+    "public/assets/css/bootstrap.min.css": {
+      "source": "node_modules/bootstrap/dist/css/bootstrap.min.css",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/css/bootstrap.min.css.map": {
+      "source": "node_modules/bootstrap/dist/css/bootstrap.min.css.map",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/css/fontawesome.min.css": {
+      "source": "node_modules/@fortawesome/fontawesome-free/css/all.min.css",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/css/toastify.css": {
+      "source": "node_modules/toastify-js/src/toastify.css",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/js/bootstrap.bundle.min.js": {
+      "source": "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/js/bootstrap.bundle.min.js.map": {
+      "source": "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js.map",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/js/chart.js": {
+      "source": "node_modules/chart.js/dist/chart.umd.js",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/js/toastify.js": {
+      "source": "node_modules/toastify-js/src/toastify.js",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/js/date-fns.js": {
+      "source": "node_modules/date-fns/index.js",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/fonts/fa-solid-900.woff2": {
+      "source": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/fonts/fa-regular-400.woff2": {
+      "source": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2",
+      "exists": true,
+      "built": true
+    },
+    "public/assets/fonts/fa-brands-400.woff2": {
+      "source": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2",
+      "exists": true,
+      "built": true
+    }
+  },
+  "successCount": 12,
+  "totalCount": 12
+}

@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UltiBiker Sensor Detection Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border-left: 4px solid #3498db;
+            background-color: #ecf0f1;
+        }
+        .button {
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 10px 10px 0;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #2980b9;
+        }
+        .button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status.success { background: #d5f4e6; color: #27ae60; }
+        .status.error { background: #fadbd8; color: #e74c3c; }
+        .status.info { background: #d6eaf8; color: #3498db; }
+        .status.warning { background: #fcf3cf; color: #f39c12; }
+        .device-list {
+            margin: 20px 0;
+        }
+        .device {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #27ae60;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .device-info {
+            flex-grow: 1;
+        }
+        .device-name {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .device-details {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .signal-strength {
+            padding: 5px 10px;
+            border-radius: 3px;
+            color: white;
+            font-weight: bold;
+        }
+        .signal-excellent { background: #27ae60; }
+        .signal-good { background: #f39c12; }
+        .signal-poor { background: #e74c3c; }
+        .log-container {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        .log-info { color: #3498db; }
+        .log-success { color: #27ae60; }
+        .log-warning { color: #f39c12; }
+        .log-error { color: #e74c3c; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚴‍♂️ UltiBiker Sensor Detection Test</h1>
+        
+        <div class="test-section">
+            <h2>Connection Status</h2>
+            <div id="connectionStatus" class="status info">
+                🔄 Connecting to UltiBiker server...
+            </div>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="discoveredCount">0</div>
+                    <div class="stat-label">Discovered Sensors</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="connectedCount">0</div>
+                    <div class="stat-label">Connected Sensors</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="dataPointsCount">0</div>
+                    <div class="stat-label">Data Points</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="clientsCount">0</div>
+                    <div class="stat-label">Connected Clients</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Permission Status</h2>
+            <div id="permissionStatus" class="status info">
+                🔒 Checking permissions...
+            </div>
+            <div>
+                <button class="button" onclick="checkPermissions()">
+                    🔒 Check Permissions
+                </button>
+                <button class="button" onclick="showPermissionGuide()">
+                    📖 Setup Guide
+                </button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Sensor Discovery</h2>
+            <div>
+                <button class="button" id="startScanBtn" onclick="startScanning()">
+                    🔍 Start Sensor Scanning
+                </button>
+                <button class="button" id="stopScanBtn" onclick="stopScanning()" disabled>
+                    ⏹️ Stop Scanning
+                </button>
+                <button class="button" onclick="getStatus()">
+                    📊 Get Status
+                </button>
+                <button class="button" onclick="clearLog()">
+                    🗑️ Clear Log
+                </button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Discovered Sensors</h2>
+            <div id="deviceList" class="device-list">
+                <div class="status info">No sensors discovered yet. Click "Start Sensor Scanning" above.</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Session Management</h2>
+            <div>
+                <button class="button" onclick="startSession()">
+                    🚴 Start Session
+                </button>
+                <button class="button" onclick="endSession()">
+                    🏁 End Session
+                </button>
+            </div>
+            <div id="sessionStatus" class="status info">No active session</div>
+        </div>
+
+        <div class="test-section">
+            <h2>Real-time Log</h2>
+            <div id="logContainer" class="log-container">
+                <div class="log-entry log-info">🚀 UltiBiker Sensor Test Interface Loaded</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Socket.io connection
+        const socket = io();
+        let isScanning = false;
+        let discoveredDevices = [];
+        let connectedDevices = [];
+        let dataPointsReceived = 0;
+        let activeSessionId = null;
+
+        // Socket event handlers
+        socket.on('connect', () => {
+            log('✅ Connected to UltiBiker server', 'success');
+            updateConnectionStatus('🟢 Connected to UltiBiker server', 'success');
+            
+            // Subscribe to all events
+            socket.emit('subscribe-sensor-data', (response) => {
+                log(`📊 Subscribed to sensor data: ${response.message}`, 'info');
+            });
+            
+            socket.emit('subscribe-device-events', (response) => {
+                log(`📱 Subscribed to device events: ${response.message}`, 'info');
+            });
+            
+            socket.emit('subscribe-session-events', (response) => {
+                log(`🏁 Subscribed to session events: ${response.message}`, 'info');
+            });
+            
+            // Get initial status
+            getStatus();
+        });
+
+        socket.on('disconnect', () => {
+            log('❌ Disconnected from server', 'error');
+            updateConnectionStatus('🔴 Disconnected from server', 'error');
+        });
+
+        // Sensor data events
+        socket.on('sensor-data', (event) => {
+            dataPointsReceived++;
+            document.getElementById('dataPointsCount').textContent = dataPointsReceived;
+            
+            const data = event.data;
+            log(`📊 ${data.metricType}: ${data.value} ${data.unit} (${data.deviceId.slice(-8)})`, 'success');
+        });
+
+        // Device events
+        socket.on('device-event', (event) => {
+            if (event.type === 'scan-result') {
+                const device = event.device;
+                discoveredDevices.push(device);
+                updateDeviceList();
+                log(`🔍 Discovered: ${device.name} (${device.type}) via ${device.protocol}`, 'success');
+            } else if (event.type === 'device-status') {
+                log(`📱 Device ${event.deviceId.slice(-8)}: ${event.status}`, 'info');
+                if (event.status === 'connected') {
+                    connectedDevices.push(event.device);
+                    updateStats();
+                }
+            }
+        });
+
+        // Session events
+        socket.on('session-update', (event) => {
+            if (event.type === 'session-started') {
+                activeSessionId = event.sessionId;
+                updateSessionStatus(`🚴 Active session: ${event.sessionName}`, 'success');
+                log(`🚴 Session started: ${event.sessionName} (${event.sessionId.slice(-8)})`, 'success');
+            } else if (event.type === 'session-ended') {
+                activeSessionId = null;
+                updateSessionStatus('No active session', 'info');
+                log(`🏁 Session ended: ${event.sessionId.slice(-8)}`, 'info');
+            }
+        });
+
+        // Control functions
+        function startScanning() {
+            if (isScanning) return;
+            
+            log('🔍 Starting sensor scanning...', 'info');
+            document.getElementById('startScanBtn').disabled = true;
+            document.getElementById('stopScanBtn').disabled = false;
+            
+            socket.emit('start-scanning', (response) => {
+                if (response.success) {
+                    isScanning = true;
+                    log('✅ Sensor scanning started successfully', 'success');
+                } else {
+                    log(`❌ Failed to start scanning: ${response.error}`, 'error');
+                    document.getElementById('startScanBtn').disabled = false;
+                    document.getElementById('stopScanBtn').disabled = true;
+                }
+            });
+        }
+
+        function stopScanning() {
+            if (!isScanning) return;
+            
+            log('⏹️ Stopping sensor scanning...', 'info');
+            document.getElementById('startScanBtn').disabled = false;
+            document.getElementById('stopScanBtn').disabled = true;
+            
+            socket.emit('stop-scanning', (response) => {
+                if (response.success) {
+                    isScanning = false;
+                    log('✅ Sensor scanning stopped', 'success');
+                } else {
+                    log(`❌ Failed to stop scanning: ${response.error}`, 'error');
+                }
+            });
+        }
+
+        function getStatus() {
+            socket.emit('get-status', (response) => {
+                if (response.success) {
+                    const status = response.status;
+                    document.getElementById('discoveredCount').textContent = status.discoveredDevices;
+                    document.getElementById('connectedCount').textContent = status.connectedDevices;
+                    document.getElementById('clientsCount').textContent = status.clients;
+                    
+                    log(`📊 Status: ${status.discoveredDevices} discovered, ${status.connectedDevices} connected, ${status.clients} clients`, 'info');
+                    
+                    if (status.activeSession) {
+                        activeSessionId = status.activeSession;
+                        updateSessionStatus(`🚴 Active session: ${status.activeSession.slice(-8)}`, 'success');
+                    }
+                }
+            });
+        }
+
+        function startSession() {
+            const sessionName = prompt('Enter session name:', `Ride Session ${new Date().toLocaleTimeString()}`);
+            if (!sessionName) return;
+            
+            socket.emit('start-session', sessionName, (response) => {
+                if (response.success) {
+                    log(`✅ Session started: ${response.sessionId.slice(-8)}`, 'success');
+                } else {
+                    log(`❌ Failed to start session: ${response.error}`, 'error');
+                }
+            });
+        }
+
+        function endSession() {
+            if (!activeSessionId) {
+                log('⚠️ No active session to end', 'warning');
+                return;
+            }
+            
+            socket.emit('end-session', activeSessionId, (response) => {
+                if (response.success) {
+                    log('✅ Session ended successfully', 'success');
+                } else {
+                    log(`❌ Failed to end session: ${response.error}`, 'error');
+                }
+            });
+        }
+
+        function connectToDevice(deviceId) {
+            socket.emit('connect-device', deviceId, (response) => {
+                if (response.success) {
+                    log(`✅ Connected to device: ${deviceId.slice(-8)}`, 'success');
+                } else {
+                    log(`❌ Failed to connect to device: ${response.error}`, 'error');
+                }
+            });
+        }
+
+        // UI helper functions
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('🗑️ Log cleared', 'info');
+        }
+
+        function updateConnectionStatus(message, type) {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function updateSessionStatus(message, type) {
+            const statusElement = document.getElementById('sessionStatus');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function updateStats() {
+            document.getElementById('discoveredCount').textContent = discoveredDevices.length;
+            document.getElementById('connectedCount').textContent = connectedDevices.length;
+            document.getElementById('dataPointsCount').textContent = dataPointsReceived;
+        }
+
+        function updateDeviceList() {
+            const deviceList = document.getElementById('deviceList');
+            
+            if (discoveredDevices.length === 0) {
+                deviceList.innerHTML = '<div class="status info">No sensors discovered yet. Click "Start Sensor Scanning" above.</div>';
+                return;
+            }
+            
+            deviceList.innerHTML = discoveredDevices.map(device => {
+                const signalClass = device.signalStrength > 80 ? 'signal-excellent' : 
+                                   device.signalStrength > 50 ? 'signal-good' : 'signal-poor';
+                
+                const protocolIcon = device.protocol === 'ant_plus' ? '📡' : '📶';
+                const typeIcon = device.type === 'heart_rate' ? '💓' : 
+                               device.type === 'power' ? '⚡' : 
+                               device.type === 'cadence' ? '🔄' : 
+                               device.type === 'speed' ? '🏃' : '🏋️';
+                
+                return `
+                    <div class="device">
+                        <div class="device-info">
+                            <div class="device-name">${typeIcon} ${device.name}</div>
+                            <div class="device-details">
+                                ${protocolIcon} ${device.protocol.toUpperCase()} • 
+                                Type: ${device.type} • 
+                                ID: ${device.deviceId.slice(-8)}
+                                ${device.manufacturer ? ` • ${device.manufacturer}` : ''}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="signal-strength ${signalClass}">
+                                ${device.signalStrength}%
+                            </div>
+                            <button class="button" onclick="connectToDevice('${device.deviceId}')" 
+                                    ${device.isConnected ? 'disabled' : ''}>
+                                ${device.isConnected ? '✅ Connected' : '🔗 Connect'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            updateStats();
+        }
+
+        // Permission checking functions
+        function checkPermissions() {
+            log('🔒 Checking device permissions...', 'info');
+            
+            fetch('/api/permissions/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const permissions = data.data.permissions;
+                        const summary = data.data.summary;
+                        const platform = data.data.platform;
+                        
+                        log(`✅ Permission check complete for ${platform}`, 'success');
+                        log(`${summary}`, 'info');
+                        
+                        // Update permission status display
+                        let statusClass = 'info';
+                        let statusText = `${summary} (${platform})`;
+                        
+                        if (permissions.bluetooth.granted && permissions.usb.granted) {
+                            statusClass = 'success';
+                            statusText = '🟢 All permissions granted - ' + statusText;
+                        } else if (permissions.bluetooth.denied || permissions.usb.denied) {
+                            statusClass = 'error';
+                            statusText = '🔴 Some permissions denied - ' + statusText;
+                        } else {
+                            statusClass = 'warning';
+                            statusText = '⚠️ Permissions pending - ' + statusText;
+                        }
+                        
+                        updatePermissionStatus(statusText, statusClass);
+                        
+                        // Log detailed status
+                        log(`📶 Bluetooth: ${permissions.bluetooth.message}`, permissions.bluetooth.granted ? 'success' : permissions.bluetooth.denied ? 'error' : 'warning');
+                        log(`🔌 USB/ANT+: ${permissions.usb.message}`, permissions.usb.granted ? 'success' : permissions.usb.denied ? 'error' : 'warning');
+                        
+                    } else {
+                        log(`❌ Permission check failed: ${data.error}`, 'error');
+                        updatePermissionStatus('❌ Permission check failed', 'error');
+                    }
+                })
+                .catch(error => {
+                    log(`❌ Permission check error: ${error.message}`, 'error');
+                    updatePermissionStatus('❌ Permission check error', 'error');
+                });
+        }
+        
+        function showPermissionGuide() {
+            log('📖 Opening permission setup guide...', 'info');
+            window.open('/api/permissions/guide', '_blank');
+        }
+        
+        function updatePermissionStatus(message, type) {
+            const statusElement = document.getElementById('permissionStatus');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        // Auto-refresh status every 5 seconds
+        setInterval(getStatus, 5000);
+        
+        // Check permissions on load
+        setTimeout(checkPermissions, 1000);
+
+        // Initial log
+        log('🌐 Browser-based sensor test interface ready', 'info');
+        log('💡 This interface tests real sensor detection via WebSocket connection', 'info');
+        log('⚠️ Make sure your cycling sensors are powered on and nearby', 'warning');
+    </script>
+</body>
+</html>

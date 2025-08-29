@@ -1,0 +1,239 @@
+
+> ultibiker@0.1.0 dev
+> tsx --watch src/server.ts
+
+(node:24860) ExperimentalWarning: Watch mode is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✅ Environment variables validated successfully
+🔧 Configuration:
+  Environment: development
+  Port: 3001
+  Database: ./ultibiker.db
+  Log Level: debug
+  Redis Enabled: false
+  API Docs: true
+⚠️  Using default JWT_SECRET - change for production!
+⚠️  Using default SESSION_SECRET - change for production!
+ℹ️ node-mac-permissions not available - using fallback methods
+2025-08-29 16:35:53.575 [[32minfo[39m] 🚀 UltiBiker server initializing
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "port": 3001
+}
+{}
+🔧 Initializing Real Hardware Sensor Manager
+2025-08-29 16:35:53.577 [[32minfo[39m] 🔒 Setting up security middleware stack
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local"
+}
+{}
+2025-08-29 16:35:53.578 [[32minfo[39m] ✅ Helmet security headers configured
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local"
+}
+{}
+2025-08-29 16:35:53.578 [[32minfo[39m] ✅ CORS configured
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "origins": [
+    "http://localhost:3000",
+    "http://localhost:3001"
+  ]
+}
+{}
+2025-08-29 16:35:53.579 [[32minfo[39m] ✅ Gzip compression enabled
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local"
+}
+{}
+2025-08-29 16:35:53.581 [[32minfo[39m] ✅ Rate limiting configured
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "windowMs": 900000,
+  "max": 100
+}
+{}
+2025-08-29 16:35:53.581 [[32minfo[39m] ✅ Strict rate limiting applied to sensor endpoints
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local"
+}
+{}
+2025-08-29 16:35:53.583 [[32minfo[39m] 🔗 Sensor data integration configured
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local"
+}
+{}
+2025-08-29 16:35:53.583 [[32minfo[39m] 🗃️  Initializing database...
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local"
+}
+{}
+✅ Database initialized successfully
+
+🚴 ════════════════════════════════════════════════════════════════
+   UltiBiker Server Started Successfully!
+   
+   📡 Server URL: http://localhost:3001
+   🌐 Web Dashboard: http://localhost:3001
+   📊 API Endpoints: http://localhost:3001/api
+   🔌 WebSocket: ws://localhost:3001
+   
+   Environment: development
+   Logging: debug
+   Security: Production middleware enabled
+   
+   Ready to aggregate sensor data! 🚀
+════════════════════════════════════════════════════════════════
+2025-08-29 16:35:53.585 [[32minfo[39m] 🚴 UltiBiker server started successfully
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "port": 3001
+}
+{}
+2025-08-29 16:36:10.925 [[32minfo[39m] ::1 - - [29/Aug/2025:07:36:10 +0000] "HEAD /assets/css/bootstrap.min.css HTTP/1.1" 200 232111 "-" "curl/8.7.1"
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "category": "api"
+}
+{}
+2025-08-29 16:36:10.925 [[32minfo[39m] Request completed
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "method": "HEAD",
+  "url": "/assets/css/bootstrap.min.css",
+  "statusCode": 200,
+  "duration": 3,
+  "ip": "::1",
+  "userAgent": "curl/8.7.1"
+}
+{}
+2025-08-29 16:36:18.468 [[32minfo[39m] ::1 - - [29/Aug/2025:07:36:18 +0000] "HEAD /assets/js/chart.js HTTP/1.1" 200 208337 "-" "curl/8.7.1"
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "category": "api"
+}
+{}
+2025-08-29 16:36:18.468 [[32minfo[39m] Request completed
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "method": "HEAD",
+  "url": "/assets/js/chart.js",
+  "statusCode": 200,
+  "duration": 1,
+  "ip": "::1",
+  "userAgent": "curl/8.7.1"
+}
+{}
+2025-08-29 16:37:39.133 [[32minfo[39m] Health check requested
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "category": "health",
+  "status": "healthy",
+  "uptime": 106.104763417,
+  "memory": {
+    "rss": 121634816,
+    "heapTotal": 36208640,
+    "heapUsed": 34664368,
+    "external": 5410894,
+    "arrayBuffers": 33651
+  },
+  "sensors": {
+    "active": 0
+  }
+}
+{}
+2025-08-29 16:37:39.135 [[32minfo[39m] ::1 - - [29/Aug/2025:07:37:39 +0000] "GET /health HTTP/1.1" 200 259 "-" "curl/8.7.1"
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "category": "api"
+}
+{}
+2025-08-29 16:37:39.135 [[32minfo[39m] Request completed
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local",
+  "method": "GET",
+  "url": "/health",
+  "statusCode": 200,
+  "duration": 2,
+  "ip": "::1",
+  "userAgent": "curl/8.7.1"
+}
+{}
+2025-08-29 16:44:20.895 [[32minfo[39m] Received SIGTERM, starting graceful shutdown
+{
+  "service": "ultibiker",
+  "version": "0.1.0",
+  "environment": "development",
+  "pid": 24861,
+  "hostname": "Titan2116.local"
+}
+{}
+Completed running 'src/server.ts'
