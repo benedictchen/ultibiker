@@ -462,6 +462,98 @@
             font-size: 2.5rem;
         }
         
+        /* Sensor Category Cards */
+        .sensor-category-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            height: 140px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .sensor-category-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+        }
+        
+        .sensor-category-header {
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+        
+        .sensor-category-header .sensor-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .sensor-category-header h6 {
+            font-weight: 600;
+            color: #495057;
+            margin: 0;
+        }
+        
+        .sensor-category-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 60px;
+        }
+        
+        .sensor-slot-empty {
+            text-align: center;
+        }
+        
+        .sensor-slot-empty i {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.5;
+        }
+        
+        .sensor-slot-connected {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(25, 135, 84, 0.1);
+            border: 1px solid rgba(25, 135, 84, 0.3);
+            border-radius: 8px;
+        }
+        
+        .sensor-slot-connected .device-name {
+            font-weight: 600;
+            color: #198754;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .sensor-slot-connected .device-status {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .sensor-slot-available {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+        }
+        
+        .sensor-slot-available .device-name {
+            font-weight: 600;
+            color: #ffc107;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .sensor-slot-available .connect-btn {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+        }
+
         /* Enhanced Device Display Styles */
         .sensor-live-data {
             background: rgba(25, 135, 84, 0.1);
@@ -495,6 +587,103 @@
         .device-list-item:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        /* Device Details Panel Styles */
+        .device-details-panel {
+            margin-top: 12px;
+            padding: 16px;
+            background: rgba(248, 249, 250, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+        
+        .device-details-content {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .detail-section {
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+        }
+        
+        .detail-section:not(:last-child) {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .detail-section-title {
+            color: #495057;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .detail-item {
+            padding: 4px 0;
+        }
+        
+        .detail-item strong {
+            color: #6c757d;
+            font-weight: 500;
+            margin-right: 8px;
+        }
+        
+        .detail-item code {
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #e83e8c;
+        }
+        
+        .services-list {
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        .service-item {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .service-item:last-child {
+            border-bottom: none;
+        }
+        
+        .capabilities-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        
+        .raw-data-container {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+        
+        .manufacturer-data,
+        .service-data,
+        .service-uuids {
+            margin: 8px 0;
+        }
+        
+        .manufacturer-data div,
+        .service-data div,
+        .service-uuids div {
+            padding: 2px 0;
+            word-break: break-all;
         }
 
         /* Connectivity Status Bars */
@@ -686,35 +875,100 @@
                         </div>
                     </div>
                     
-                    <!-- Discovered Devices -->
-                    <div class="col-md-6">
-                        <div class="device-section">
-                            <h5 class="mb-3">
-                                <i class="fas fa-list me-2 text-warning"></i>
-                                Detected Devices
-                            </h5>
-                            <div id="discoveredDevices">
-                                <div class="text-center py-5 text-muted">
-                                    <i class="fas fa-search fa-3x mb-3 opacity-50"></i>
-                                    <p class="mb-0">Click "Start Scan" to find sensors</p>
-                                    <small>ANT+ and Bluetooth devices will appear here</small>
+                    <!-- Sensor Category Slots -->
+                    <div class="col-12">
+                        <div class="row g-3">
+                            <!-- Heart Rate Slot -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="sensor-category-card" id="heartRateSlot">
+                                    <div class="sensor-category-header">
+                                        <div class="sensor-icon heart-rate">
+                                            <i class="fas fa-heartbeat"></i>
+                                        </div>
+                                        <h6 class="mb-1">💓 Heart Rate</h6>
+                                    </div>
+                                    <div class="sensor-category-content">
+                                        <div class="sensor-slot-empty">
+                                            <i class="fas fa-plus-circle text-muted"></i>
+                                            <small class="text-muted d-block">No heart rate monitor</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Power Slot -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="sensor-category-card" id="powerSlot">
+                                    <div class="sensor-category-header">
+                                        <div class="sensor-icon power">
+                                            <i class="fas fa-bolt"></i>
+                                        </div>
+                                        <h6 class="mb-1">⚡ Power Meter</h6>
+                                    </div>
+                                    <div class="sensor-category-content">
+                                        <div class="sensor-slot-empty">
+                                            <i class="fas fa-plus-circle text-muted"></i>
+                                            <small class="text-muted d-block">No power meter</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Cadence Slot -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="sensor-category-card" id="cadenceSlot">
+                                    <div class="sensor-category-header">
+                                        <div class="sensor-icon cadence">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </div>
+                                        <h6 class="mb-1">🔄 Cadence</h6>
+                                    </div>
+                                    <div class="sensor-category-content">
+                                        <div class="sensor-slot-empty">
+                                            <i class="fas fa-plus-circle text-muted"></i>
+                                            <small class="text-muted d-block">No cadence sensor</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Speed/Trainer Slot -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="sensor-category-card" id="speedSlot">
+                                    <div class="sensor-category-header">
+                                        <div class="sensor-icon speed">
+                                            <i class="fas fa-tachometer-alt"></i>
+                                        </div>
+                                        <h6 class="mb-1">📏 Speed/Trainer</h6>
+                                    </div>
+                                    <div class="sensor-category-content">
+                                        <div class="sensor-slot-empty">
+                                            <i class="fas fa-plus-circle text-muted"></i>
+                                            <small class="text-muted d-block">No speed sensor</small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Connected Devices -->
-                    <div class="col-md-6">
+                    <!-- Available Devices Section -->
+                    <div class="col-12">
                         <div class="device-section">
-                            <h5 class="mb-3">
-                                <i class="fas fa-check-circle me-2 text-success"></i>
-                                Connected Devices
-                            </h5>
-                            <div id="connectedDevices">
-                                <div class="text-center py-5 text-muted">
-                                    <i class="fas fa-unlink fa-2x mb-2 opacity-50"></i>
-                                    <p class="mb-0 small">No devices connected</p>
-                                    <small>Connected sensors will stream data automatically</small>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-wifi me-2 text-info"></i>
+                                    Available Devices
+                                </h5>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-secondary" id="availableDeviceCount">0 found</span>
+                                </div>
+                            </div>
+                            <div id="discoveredDevices">
+                                <div class="text-center py-4 text-muted">
+                                    <i class="fas fa-search fa-2x mb-2 opacity-50"></i>
+                                    <p class="mb-0">Click "Start Scan" to find sensors</p>
+                                    <small>Discovered devices will appear here for pairing</small>
                                 </div>
                             </div>
                         </div>
@@ -767,17 +1021,64 @@
                         </div>
                     </div>
 
+                    <!-- Apple Watch Setup Section -->
+                    <div class="col-12" id="appleWatchSetup" style="display: none;">
+                        <div class="device-section" style="height: auto; padding: 1.5rem; background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); border: 2px solid #667eea40;">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="sensor-icon heart-rate me-2">🍎</div>
+                                        <div>
+                                            <h5 class="mb-1">Apple Watch Heart Rate</h5>
+                                            <p class="mb-0 text-muted">Use your Apple Watch as a wireless heart rate monitor</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <strong>Quick Setup Steps:</strong>
+                                        <ol class="mb-2 ms-3">
+                                            <li>Install <strong>HeartCast</strong> (free) or <strong>HRM</strong> app on your Apple Watch</li>
+                                            <li>Open the app on your Apple Watch and start broadcasting</li>
+                                            <li>Click "Start Device Scan" above to find your Apple Watch</li>
+                                            <li>Connect and start your cycling session!</li>
+                                        </ol>
+                                    </div>
+                                    
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <button class="btn btn-sm btn-primary" onclick="dashboard.showAppleWatchGuide()">
+                                            📚 Full Setup Guide
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="dashboard.startDeviceScanning()">
+                                            🔍 Scan for Apple Watch
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="dashboard.hideAppleWatchSetup()">
+                                            ✕ Hide
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div class="sensor-icon heart-rate mb-2" style="font-size: 3rem;">⌚️</div>
+                                    <p class="text-muted small mb-0">Apple Watch + iPhone required</p>
+                                    <p class="text-muted small">Heart rate data only</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Device Status Info -->
                     <div class="col-12">
                         <div class="device-section" style="height: auto; padding: 1rem;">
                             <div class="row text-center">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <h6 class="mb-1">📡 ANT+ Stick: <span id="antStatus" class="badge bg-danger">Disconnected ❌</span></h6>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <h6 class="mb-1">📶 Bluetooth: <span id="bleStatus" class="badge bg-success">Enabled ✅</span></h6>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
+                                    <h6 class="mb-1">🍎 Apple Watch: <button class="badge bg-info border-0" onclick="dashboard.showAppleWatchSetup()" style="cursor: pointer;">Setup 🔗</button></h6>
+                                </div>
+                                <div class="col-md-3">
                                     <h6 class="mb-1">🔗 Total Devices: <span id="deviceCount" class="badge bg-primary">0 connected</span></h6>
                                 </div>
                             </div>

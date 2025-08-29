@@ -1,0 +1,13 @@
+{
+  "deviceId": "5e38661bee8c990e01370c198616f487",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor F487",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple Inc.",
+    "signalStrength": 37
+  },
+  "signalStrength": 37,
+  "timestamp": "2025-08-29T07:00:43.977Z"
+}

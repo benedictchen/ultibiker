@@ -22,11 +22,30 @@ export interface SensorDevice {
   characteristics?: CharacteristicInfo[];
   confidence?: number;
   metadata?: {
+    // Common metadata
     serialNumber?: string;
     hardwareRevision?: string;
     firmwareRevision?: string;
     softwareRevision?: string;
+    
+    // BLE-specific metadata
     rawAdvertisement?: any;
+    companyId?: number;
+    serviceData?: { [uuid: string]: { data: string; length: number } };
+    
+    // ANT+-specific metadata
+    antDeviceProfile?: number;
+    manufacturerId?: number;
+    hardwareVersion?: number;
+    softwareVersion?: number;
+    
+    // Power meter specific
+    powerBalance?: number;
+    crankLength?: number;
+    
+    // Trainer specific
+    equipmentType?: string;
+    maxResistance?: number;
   };
 }
 

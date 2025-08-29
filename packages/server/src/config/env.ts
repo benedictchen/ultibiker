@@ -39,12 +39,10 @@ export const env = cleanEnv(process.env, {
   
   // Security Configuration
   JWT_SECRET: str({
-    default: 'ultibiker-dev-secret-change-in-production',
-    desc: 'JWT signing secret - MUST change in production'
+    desc: 'JWT signing secret - REQUIRED for production'
   }),
   SESSION_SECRET: str({
-    default: 'ultibiker-session-secret-change-in-production',
-    desc: 'Express session secret - MUST change in production'
+    desc: 'Express session secret - REQUIRED for production'
   }),
   
   // Redis Configuration (optional)
@@ -75,8 +73,7 @@ export const env = cleanEnv(process.env, {
   
   // Health Check
   HEALTH_CHECK_TOKEN: str({
-    default: 'health-check-token-change-in-production',
-    desc: 'Token for authenticated health checks'
+    desc: 'Token for authenticated health checks - REQUIRED for production'
   }),
   
   // Development flags
@@ -127,12 +124,12 @@ export const env = cleanEnv(process.env, {
         console.log(`  Redis Enabled: ${validatedEnv.REDIS_ENABLED}`);
         console.log(`  API Docs: ${validatedEnv.ENABLE_API_DOCS}`);
         
-        // Show warnings for default secrets in development
-        if (validatedEnv.JWT_SECRET.includes('dev-secret')) {
-          console.warn('⚠️  Using default JWT_SECRET - change for production!');
+        // Show warnings for missing secrets in development
+        if (!validatedEnv.JWT_SECRET) {
+          console.warn('⚠️  JWT_SECRET not set - required for authentication!');
         }
-        if (validatedEnv.SESSION_SECRET.includes('session-secret')) {
-          console.warn('⚠️  Using default SESSION_SECRET - change for production!');
+        if (!validatedEnv.SESSION_SECRET) {
+          console.warn('⚠️  SESSION_SECRET not set - required for sessions!');
         }
       }
     }

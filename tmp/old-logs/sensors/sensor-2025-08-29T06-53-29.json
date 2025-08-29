@@ -1,0 +1,12 @@
+{
+  "deviceId": "43bf9396dda1910212100aaba44629b8",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "BLE Device 29b8",
+    "protocol": "bluetooth",
+    "signalStrength": 18
+  },
+  "signalStrength": 18,
+  "timestamp": "2025-08-29T06:53:29.101Z"
+}

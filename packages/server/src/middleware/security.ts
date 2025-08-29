@@ -38,7 +38,8 @@ export function setupSecurityMiddleware(app: Application, config: SecurityConfig
         directives: {
           defaultSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrcAttr: ["'unsafe-inline'"],
           imgSrc: ["'self'", "data:", "https:"],
           connectSrc: ["'self'", "ws://localhost:*", "wss://localhost:*"],
           fontSrc: ["'self'"],

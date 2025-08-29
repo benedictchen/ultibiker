@@ -1,0 +1,13 @@
+{
+  "deviceId": "df0cc05c36e0d2f380764cb11b9af92c",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor F92C",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple, Inc.",
+    "signalStrength": 17
+  },
+  "signalStrength": 17,
+  "timestamp": "2025-08-29T07:05:03.840Z"
+}

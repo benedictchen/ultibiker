@@ -1,0 +1,13 @@
+{
+  "deviceId": "92fd2d1f29ee7b3963bdb07de4fe3290",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor 3290",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple, Inc.",
+    "signalStrength": 22
+  },
+  "signalStrength": 22,
+  "timestamp": "2025-08-29T07:04:48.796Z"
+}

@@ -20,8 +20,7 @@ import { createSessionRoutes } from './api/sessions.js';
 import { createDataRoutes } from './api/data.js';
 import { createPermissionRoutes } from './api/permissions.js';
 import { createErrorRoutes } from './api/errors.js';
-// Legacy logger - replaced by Winston/Sentry logging
-// import { appLogger, crashLogger } from './services/logger.js';
+import { appLogger, Sentry } from './services/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

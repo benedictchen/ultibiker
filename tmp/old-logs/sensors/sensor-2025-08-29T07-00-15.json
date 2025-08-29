@@ -1,0 +1,13 @@
+{
+  "deviceId": "ba6666f28237cf39d29a3a531b03e502",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor E502",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple Inc.",
+    "signalStrength": 18
+  },
+  "signalStrength": 18,
+  "timestamp": "2025-08-29T07:00:15.962Z"
+}

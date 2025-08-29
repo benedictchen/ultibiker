@@ -1,0 +1,12 @@
+{
+  "deviceId": "e9bf83bb739bf9348e83a3a408a8542c",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "BLE Device 542c",
+    "protocol": "bluetooth",
+    "signalStrength": 20
+  },
+  "signalStrength": 20,
+  "timestamp": "2025-08-29T06:48:48.891Z"
+}

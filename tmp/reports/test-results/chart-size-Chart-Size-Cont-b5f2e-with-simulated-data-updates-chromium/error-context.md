@@ -1,0 +1,57 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - heading " UltiBiker MVP" [level=1] [ref=e9]:
+        - generic [ref=e10]: 
+        - text: UltiBiker MVP
+      - paragraph [ref=e11]: Real-time cycling sensor data aggregation
+    - generic [ref=e15]: Connected
+  - tablist [ref=e18]:
+    - tab " Device Connection" [selected] [ref=e19] [cursor=pointer]:
+      - generic [ref=e20] [cursor=pointer]: 
+      - text: Device Connection
+    - tab " Live Data Feed" [ref=e21] [cursor=pointer]:
+      - generic [ref=e22] [cursor=pointer]: 
+      - text: Live Data Feed
+  - generic [ref=e23]:
+    - tabpanel " Device Connection" [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e27]:
+          - heading " Scan for Devices" [level=4] [ref=e28]:
+            - generic [ref=e29]: 
+            - text: Scan for Devices
+          - generic [ref=e30]:
+            - button "Start Scan" [ref=e31] [cursor=pointer]: Start Scan
+            - text: 
+            - generic [ref=e32]: Idle
+        - generic [ref=e34]:
+          - heading " Detected Devices" [level=5] [ref=e35]:
+            - generic [ref=e36]: 
+            - text: Detected Devices
+          - generic [ref=e38]:
+            - generic [ref=e39]: 
+            - paragraph [ref=e40]: Click "Start Scan" to find sensors
+            - generic [ref=e41]: ANT+ and Bluetooth devices will appear here
+        - generic [ref=e43]:
+          - heading " Connected Devices" [level=5] [ref=e44]:
+            - generic [ref=e45]: 
+            - text: Connected Devices
+          - generic [ref=e47]:
+            - generic [ref=e48]: 
+            - paragraph [ref=e49]: No devices connected
+            - generic [ref=e50]: Connected sensors will stream data automatically
+        - generic [ref=e53]:
+          - 'heading "📡 ANT+ Stick: Disconnected ❌" [level=6] [ref=e55]':
+            - text: "📡 ANT+ Stick:"
+            - generic [ref=e56]: Disconnected ❌
+          - 'heading "📶 Bluetooth: Enabled ✅" [level=6] [ref=e58]':
+            - text: "📶 Bluetooth:"
+            - generic [ref=e59]: Enabled ✅
+          - 'heading "🔗 Total Devices: 0 connected" [level=6] [ref=e61]':
+            - text: "🔗 Total Devices:"
+            - generic [ref=e62]: 0 connected
+    - text:               
+```

@@ -2,15 +2,32 @@ import { eq } from 'drizzle-orm';
 import { db } from '../database/db.js';
 import { sessions, sensorData, Session, NewSession, SensorData } from '../database/schema.js';
 import { SensorReading } from '../types/sensor.js';
-import { crashLogger } from './crash-logger.js';
+import { appLogger } from './logger.js';
+import { 
+  SensorDataValidator, 
+  ValidationResult, 
+  ValidatedSessionData, 
+  ValidatedSensorReading 
+} from '../validation/sensor-validation.js';
 
 export class SessionManager {
   private currentSessionId: string | null = null;
 
   async startSession(name?: string): Promise<string> {
     try {
+      const sessionName = name || 'New Ride Session';
+      
+      // Validate session data
+      const sessionData = { name: sessionName };
+      const validationResult = SensorDataValidator.validateSessionData(sessionData);
+      
+      if (!validationResult.success) {
+        const errorMessages = validationResult.errors?.map(e => e.message).join(', ') || 'Unknown validation error';
+        throw new Error(`Invalid session data: ${errorMessages}`);
+      }
+
       const session = await db.insert(sessions).values({
-        name: name || 'New Ride Session',
+        name: sessionName,
         status: 'active'
       }).returning();
 
@@ -19,7 +36,7 @@ export class SessionManager {
       console.log(`🚴 Started session: ${session[0].name} (${session[0].id})`);
       
       // Log session start
-      crashLogger.logSession({
+      appLogger.logSessionEvent({
         sessionId: session[0].id,
         event: 'session_started',
         timestamp: new Date().toISOString(),
@@ -34,13 +51,15 @@ export class SessionManager {
       console.error('❌ Failed to start session:', error);
       
       // Log session start failure
-      crashLogger.logError({
-        type: 'error',
-        severity: 'high',
-        message: `Failed to start session: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        stack: error instanceof Error ? error.stack : undefined,
-        context: { sessionName: name || 'New Ride Session' }
-      });
+      appLogger.logError(
+        `Failed to start session: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error : new Error(String(error)),
+        { 
+          type: 'session_error',
+          severity: 'high',
+          sessionName: name || 'New Ride Session'
+        }
+      );
       
       throw error;
     }
@@ -143,6 +162,12 @@ export class SessionManager {
 
   async addSensorReading(reading: SensorReading): Promise<void> {
     try {
+      // Skip unknown sensor types - they're not supported in the database schema
+      if (reading.metricType === 'unknown') {
+        console.warn(`⚠️ Skipping sensor reading with unknown metric type from device ${reading.deviceId}`);
+        return;
+      }
+
       await db.insert(sensorData).values({
         deviceId: reading.deviceId,
         sessionId: reading.sessionId,

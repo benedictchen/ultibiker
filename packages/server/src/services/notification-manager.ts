@@ -143,13 +143,35 @@ class NotificationBatcher {
     const highestPriority = Math.max(...notifications.map(n => n.priority));
     
     let summary: string;
+    let displayDevices: string[] = [];
+    
     if (type === 'discovery') {
-      const uniqueDevices = new Set(notifications.map(n => n.deviceName).filter(Boolean));
-      summary = `Found ${count} sensors${uniqueDevices.size > 1 ? ` (${uniqueDevices.size} unique)` : ''}`;
+      const uniqueDeviceNames = new Set(notifications.map(n => n.deviceName).filter(Boolean));
+      const deviceList = Array.from(uniqueDeviceNames);
+      
+      if (deviceList.length <= 3) {
+        // Show device names if 3 or fewer
+        displayDevices = deviceList.slice(0, 3).filter((name): name is string => name !== undefined);
+        summary = `Found ${count} sensor${count > 1 ? 's' : ''}: ${displayDevices.join(', ')}`;
+      } else {
+        // Show count and first few devices for larger lists
+        displayDevices = deviceList.slice(0, 2).filter((name): name is string => name !== undefined);
+        summary = `Found ${count} sensor${count > 1 ? 's' : ''}: ${displayDevices.join(', ')} and ${deviceList.length - 2} more`;
+      }
     } else if (type === 'device-connection') {
-      summary = `${count} device connection events`;
+      const connectionTypes = notifications.reduce((acc, n) => {
+        const status = n.data?.status || 'unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const statusSummary = Object.entries(connectionTypes)
+        .map(([status, count]) => `${count} ${status}`)
+        .join(', ');
+      
+      summary = `Device connections: ${statusSummary}`;
     } else {
-      summary = `${count} ${type} notifications`;
+      summary = `${count} ${type.replace('-', ' ')} notification${count > 1 ? 's' : ''}`;
     }
 
     return {
@@ -157,10 +179,61 @@ class NotificationBatcher {
       batchType: type,
       count,
       summary,
-      items: notifications,
+      items: notifications.map(n => this.sanitizeNotificationData(n)),
       timestamp: Date.now(),
       priority: Math.min(7, highestPriority) // Batched notifications get slightly lower priority
     };
+  }
+
+  /**
+   * Sanitize notification data to prevent [object Object] display issues
+   */
+  private sanitizeNotificationData(notification: SensorNotification): SensorNotification {
+    return {
+      ...notification,
+      data: notification.data ? this.sanitizeData(notification.data) : undefined
+    };
+  }
+
+  /**
+   * Recursively sanitize data objects to ensure they can be properly displayed
+   */
+  private sanitizeData(data: any): any {
+    if (data === null || data === undefined) {
+      return data;
+    }
+    
+    if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+      return data;
+    }
+    
+    if (Array.isArray(data)) {
+      return data.map(item => this.sanitizeData(item));
+    }
+    
+    if (typeof data === 'object') {
+      const sanitized: any = {};
+      
+      Object.keys(data).forEach(key => {
+        const value = data[key];
+        
+        if (typeof value === 'object' && value !== null) {
+          // Convert objects to string representation for display
+          if (value.toString !== Object.prototype.toString) {
+            sanitized[key] = value.toString();
+          } else {
+            // Create a readable string for objects
+            sanitized[key] = JSON.stringify(value, null, 2);
+          }
+        } else {
+          sanitized[key] = value;
+        }
+      });
+      
+      return sanitized;
+    }
+    
+    return String(data);
   }
 }
 

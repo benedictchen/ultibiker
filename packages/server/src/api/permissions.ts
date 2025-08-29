@@ -99,6 +99,27 @@ export function createPermissionRoutes(sensorManager: UltiBikerSensorManager): R
                 'macOS should automatically recognize it',
                 'No additional permissions needed for USB devices'
               ]
+            },
+            appleWatch: {
+              title: 'Apple Watch Heart Rate Setup',
+              description: 'Use your Apple Watch as a heart rate monitor with UltiBiker',
+              steps: [
+                'Install HeartCast, HRM, or BlueHeart app on Apple Watch',
+                'Open the app on your Apple Watch',
+                'Start heart rate broadcasting',
+                'Keep iPhone nearby during workouts',
+                'Start UltiBiker device scan to find Apple Watch'
+              ],
+              apps: [
+                'HeartCast (Free) - Simple and reliable',
+                'HRM Heart Rate Monitor - Compatible with most equipment',
+                'BlueHeart - Works with popular fitness brands'
+              ],
+              limitations: [
+                'Heart rate data only (no power/cadence from Apple Watch)',
+                'Requires iPhone nearby for Bluetooth relay',
+                'May drain Apple Watch battery faster'
+              ]
             }
           };
           break;
@@ -208,6 +229,27 @@ export function createPermissionRoutes(sensorManager: UltiBikerSensorManager): R
         success: false,
         error: 'Failed to request Bluetooth permission',
         details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get Apple Watch setup instructions
+  router.get('/apple-watch-setup', async (req: Request, res: Response) => {
+    try {
+      const { PermissionManager } = await import('../services/permission-manager.js');
+      const permissionManager = new PermissionManager();
+      
+      const instructions = permissionManager.getAppleWatchSetupInstructions();
+      
+      res.json({
+        success: true,
+        data: instructions
+      });
+    } catch (error) {
+      console.error('Error getting Apple Watch setup instructions:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get Apple Watch setup instructions'
       });
     }
   });

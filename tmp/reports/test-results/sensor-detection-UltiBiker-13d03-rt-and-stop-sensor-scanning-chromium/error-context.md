@@ -1,0 +1,53 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - heading "🚴‍♂️ UltiBiker Sensor Detection Test" [level=1] [ref=e3]
+  - generic [ref=e4]:
+    - heading "Connection Status" [level=2] [ref=e5]
+    - generic [ref=e6]: 🟢 Connected to UltiBiker server
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: "0"
+        - generic [ref=e10]: Discovered Sensors
+      - generic [ref=e11]:
+        - generic [ref=e12]: "0"
+        - generic [ref=e13]: Connected Sensors
+      - generic [ref=e14]:
+        - generic [ref=e15]: "0"
+        - generic [ref=e16]: Data Points
+      - generic [ref=e17]:
+        - generic [ref=e18]: "6"
+        - generic [ref=e19]: Connected Clients
+  - generic [ref=e20]:
+    - heading "Sensor Discovery" [level=2] [ref=e21]
+    - generic [ref=e22]:
+      - button "🔍 Start Sensor Scanning" [disabled] [ref=e23]
+      - button "⏹️ Stop Scanning" [active] [ref=e24] [cursor=pointer]
+      - button "📊 Get Status" [ref=e25] [cursor=pointer]
+      - button "🗑️ Clear Log" [ref=e26] [cursor=pointer]
+  - generic [ref=e27]:
+    - heading "Discovered Sensors" [level=2] [ref=e28]
+    - generic [ref=e30]: No sensors discovered yet. Click "Start Sensor Scanning" above.
+  - generic [ref=e31]:
+    - heading "Session Management" [level=2] [ref=e32]
+    - generic [ref=e33]:
+      - button "🚴 Start Session" [ref=e34] [cursor=pointer]
+      - button "🏁 End Session" [ref=e35] [cursor=pointer]
+    - generic [ref=e36]: No active session
+  - generic [ref=e37]:
+    - heading "Real-time Log" [level=2] [ref=e38]
+    - generic [ref=e39]:
+      - generic [ref=e40]: 🚀 UltiBiker Sensor Test Interface Loaded
+      - generic [ref=e41]: "[2:43:34 PM] 🌐 Browser-based sensor test interface ready"
+      - generic [ref=e42]: "[2:43:34 PM] 💡 This interface tests real sensor detection via WebSocket connection"
+      - generic [ref=e43]: "[2:43:34 PM] ⚠️ Make sure your cycling sensors are powered on and nearby"
+      - generic [ref=e44]: "[2:43:34 PM] ✅ Connected to UltiBiker server"
+      - generic [ref=e45]: "[2:43:34 PM] 📊 Subscribed to sensor data: Subscribed to sensor data"
+      - generic [ref=e46]: "[2:43:34 PM] 📱 Subscribed to device events: Subscribed to device events"
+      - generic [ref=e47]: "[2:43:34 PM] 🏁 Subscribed to session events: Subscribed to session events"
+      - generic [ref=e48]: "[2:43:34 PM] 📊 Status: 0 discovered, 0 connected, 6 clients"
+      - generic [ref=e49]: "[2:43:34 PM] 🔍 Starting sensor scanning..."
+      - generic [ref=e50]: "[2:43:39 PM] 📊 Status: 0 discovered, 0 connected, 6 clients"
+      - generic [ref=e51]: "[2:43:39 PM] ✅ Sensor scanning started successfully"
+```

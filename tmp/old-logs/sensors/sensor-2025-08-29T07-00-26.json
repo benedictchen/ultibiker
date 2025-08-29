@@ -1,0 +1,13 @@
+{
+  "deviceId": "c6d2366c83d81710a155d72338bb2da7",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor 2DA7",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple Inc.",
+    "signalStrength": 32
+  },
+  "signalStrength": 32,
+  "timestamp": "2025-08-29T07:00:26.955Z"
+}

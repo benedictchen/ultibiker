@@ -1,0 +1,13 @@
+{
+  "deviceId": "03a5794a68ebeb15571ba3874d2aef49",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor EF49",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple Inc.",
+    "signalStrength": 25
+  },
+  "signalStrength": 25,
+  "timestamp": "2025-08-29T07:00:10.876Z"
+}

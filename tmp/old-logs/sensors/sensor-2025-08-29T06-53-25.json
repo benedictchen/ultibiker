@@ -1,0 +1,12 @@
+{
+  "deviceId": "b85ab8f94c83f1b7bf8885aa2e99309e",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "BLE Device 309e",
+    "protocol": "bluetooth",
+    "signalStrength": 43
+  },
+  "signalStrength": 43,
+  "timestamp": "2025-08-29T06:53:25.033Z"
+}

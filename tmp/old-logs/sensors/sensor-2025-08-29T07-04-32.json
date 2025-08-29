@@ -1,0 +1,13 @@
+{
+  "deviceId": "cb0f426af4fb084020d04ff68bfff86f",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor F86F",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple, Inc.",
+    "signalStrength": 68
+  },
+  "signalStrength": 68,
+  "timestamp": "2025-08-29T07:04:32.610Z"
+}

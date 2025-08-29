@@ -1,0 +1,13 @@
+{
+  "deviceId": "c0f8b43cb5a61a1d68c5a6bcd7abf280",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor F280",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple Inc.",
+    "signalStrength": 58
+  },
+  "signalStrength": 58,
+  "timestamp": "2025-08-29T07:00:51.743Z"
+}

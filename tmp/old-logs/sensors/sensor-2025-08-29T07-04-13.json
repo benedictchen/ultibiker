@@ -1,0 +1,13 @@
+{
+  "deviceId": "45da9f37fe53ed5b08c60cfba1a16aae",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Benediction iPhone (4)",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple, Inc.",
+    "signalStrength": 67
+  },
+  "signalStrength": 67,
+  "timestamp": "2025-08-29T07:04:13.720Z"
+}

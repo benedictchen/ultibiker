@@ -7,6 +7,12 @@
 
 import { SensorReading, SensorType } from '../types/sensor.js';
 import { createId } from '@paralleldrive/cuid2';
+import { 
+  SensorDataValidator, 
+  ValidationResult, 
+  ValidatedRawSensorData,
+  ValidatedAppleWatchData 
+} from '../validation/sensor-validation.js';
 
 export class DataParser {
   private lastReadings = new Map<string, { value: number, timestamp: Date }>();
@@ -18,7 +24,10 @@ export class DataParser {
   
   parse(rawData: any, protocol: 'ant_plus' | 'bluetooth'): SensorReading | null {
     if (!rawData || !rawData.deviceId || !rawData.type) {
-      console.warn('Invalid sensor data received:', rawData);
+      console.warn('❌ Invalid sensor data received: missing required fields', { 
+        hasDeviceId: !!rawData?.deviceId, 
+        hasType: !!rawData?.type 
+      });
       return null;
     }
 
@@ -29,16 +38,27 @@ export class DataParser {
         console.debug('📊 Sensor data received but no active session - data not recorded');
         return null;
       }
+
+      // First, validate the raw sensor data
+      const validationResult = this.validateRawSensorData(rawData);
+      if (!validationResult.success) {
+        console.warn('❌ Sensor data validation failed:', validationResult.errors);
+        return null;
+      }
+
+      const validatedData = validationResult.data!;
       
       const reading: SensorReading = {
-        deviceId: rawData.deviceId,
+        deviceId: validatedData.deviceId,
         sessionId: sessionId,
-        timestamp: rawData.timestamp || new Date(),
-        metricType: this.mapSensorType(rawData.type),
-        value: this.parseValue(rawData.value, rawData.type),
-        unit: this.getUnit(rawData.type),
-        quality: this.calculateQuality(rawData, protocol),
-        rawData: this.sanitizeRawData(rawData.rawData || rawData)
+        timestamp: validatedData.timestamp || new Date(),
+        metricType: this.mapSensorType(validatedData.type),
+        value: this.isAppleWatchDevice(validatedData) ? 
+               this.parseAppleWatchValue(validatedData.value, validatedData.type, validatedData.deviceName) :
+               this.parseValue(validatedData.value, validatedData.type),
+        unit: this.getUnit(validatedData.type),
+        quality: this.calculateQuality(validatedData, protocol),
+        rawData: SensorDataValidator.sanitizeRawData(validatedData.rawData || validatedData)
       };
 
       // Validate the reading
@@ -196,13 +216,181 @@ export class DataParser {
       if (rawData.rawData && rawData.rawData.buffer) {
         quality += 5; // Bonus for having raw buffer data
       }
+      
+      // Apple Watch specific quality assessment
+      if (this.isAppleWatchDevice(rawData)) {
+        quality = this.calculateAppleWatchQuality(rawData, quality, lastReading);
+      }
     }
 
     // Ensure quality is between 0-100
     return Math.max(0, Math.min(100, Math.round(quality)));
   }
 
+  /**
+   * Detect if this is data from an Apple Watch device
+   */
+  private isAppleWatchDevice(rawData: any): boolean {
+    if (!rawData.deviceId || !rawData.manufacturer) return false;
+    
+    // Check for Apple manufacturer
+    const isApple = rawData.manufacturer?.toLowerCase().includes('apple') ||
+                   rawData.companyId === 76; // Apple's Bluetooth SIG Company ID
+    
+    // Check for Apple Watch app names
+    const deviceName = rawData.deviceName?.toLowerCase() || '';
+    const isWatchApp = deviceName.includes('heartcast') ||
+                      deviceName.includes('hrm') ||
+                      deviceName.includes('blueheart') ||
+                      deviceName.includes('echohr') ||
+                      deviceName.includes('apple watch');
+    
+    return isApple && (isWatchApp || rawData.type === 'heart_rate');
+  }
+
+  /**
+   * Apple Watch specific quality assessment
+   */
+  private calculateAppleWatchQuality(rawData: any, baseQuality: number, lastReading?: { value: number, timestamp: Date }): number {
+    let quality = baseQuality;
+    
+    // Apple Watch heart rate quality factors
+    if (rawData.type === 'heart_rate') {
+      // Apple Watch has excellent optical sensors - give quality boost
+      quality += 10;
+      
+      // Check for Apple Watch specific data patterns
+      if (this.isValidAppleWatchHeartRate(rawData)) {
+        quality += 5;
+      }
+      
+      // Apple Watch typically provides smooth, consistent readings
+      if (lastReading) {
+        const valueDiff = Math.abs(rawData.value - lastReading.value);
+        const timeDiff = (new Date().getTime() - lastReading.timestamp.getTime()) / 1000;
+        
+        // Apple Watch should have consistent 1-2 second updates
+        if (timeDiff >= 0.8 && timeDiff <= 3.0) {
+          quality += 5; // Good update frequency
+        } else if (timeDiff > 5) {
+          quality -= 10; // Poor update frequency
+        }
+        
+        // Apple Watch heart rate should be smooth (less dramatic changes)
+        if (valueDiff <= 5) {
+          quality += 5; // Very smooth readings
+        } else if (valueDiff <= 15) {
+          quality += 2; // Reasonably smooth
+        } else if (valueDiff > 30) {
+          quality -= 15; // Suspicious large changes
+        }
+      }
+      
+      // Penalize if heart rate seems unrealistic for optical sensor
+      const hr = rawData.value;
+      if (hr < 50 || hr > 200) {
+        quality -= 10; // Outside typical optical sensor range
+      }
+      
+      // Apple Watch rarely gives perfect round numbers
+      if (hr % 5 === 0 && hr % 10 === 0) {
+        quality -= 5; // Suspiciously round number
+      }
+    }
+    
+    // Check for Apple Watch app specific indicators
+    const deviceName = rawData.deviceName?.toLowerCase() || '';
+    if (deviceName.includes('heartcast')) {
+      quality += 3; // HeartCast is generally reliable
+    } else if (deviceName.includes('hrm')) {
+      quality += 5; // HRM app is very reliable
+    } else if (deviceName.includes('blueheart')) {
+      quality += 4; // BlueHeart is reliable
+    }
+    
+    return quality;
+  }
+
+  /**
+   * Validate Apple Watch heart rate data patterns
+   */
+  private isValidAppleWatchHeartRate(rawData: any): boolean {
+    const hr = rawData.value;
+    
+    // Basic range validation
+    if (hr < 30 || hr > 220) return false;
+    
+    // Apple Watch optical sensor typically works well in 50-200 BPM range
+    if (hr < 50 || hr > 200) {
+      // Still valid but less optimal range for optical sensors
+      return true;
+    }
+    
+    // Apple Watch provides integer values
+    return Number.isInteger(hr);
+  }
+
+  /**
+   * Validate raw sensor data using schema validation
+   */
+  private validateRawSensorData(rawData: any): ValidationResult<ValidatedRawSensorData> {
+    // Check if this is Apple Watch data and use specific validation
+    if (this.isAppleWatchDevice(rawData)) {
+      const appleValidation = SensorDataValidator.validateAppleWatchData(rawData);
+      if (appleValidation.success) {
+        // Convert Apple Watch validation to general sensor data format
+        return {
+          success: true,
+          data: appleValidation.data as ValidatedRawSensorData
+        };
+      }
+      // If Apple Watch specific validation fails, fall back to general validation
+    }
+
+    // Use general sensor data validation
+    return SensorDataValidator.validateRawSensorData(rawData);
+  }
+
+  /**
+   * Enhanced parsing for Apple Watch data
+   */
+  private parseAppleWatchValue(value: any, type: string, deviceName?: string): number {
+    const numericValue = typeof value === 'number' ? value : parseFloat(value);
+    
+    if (isNaN(numericValue)) {
+      throw new Error(`Invalid Apple Watch numeric value: ${value}`);
+    }
+
+    if (type === 'heart_rate') {
+      // Apple Watch heart rate specific parsing
+      const hr = Math.round(numericValue);
+      
+      // Apple Watch optical sensor validation
+      if (hr < 30) {
+        console.warn(`Apple Watch heart rate too low: ${hr} BPM - may indicate poor contact`);
+      } else if (hr > 220) {
+        console.warn(`Apple Watch heart rate too high: ${hr} BPM - may indicate interference`);
+      }
+      
+      return hr;
+    }
+    
+    return numericValue;
+  }
+
   private validateReading(reading: SensorReading): boolean {
+    // Use schema validation for the final reading
+    const validationResult = SensorDataValidator.validateSensorReading(reading);
+    
+    if (!validationResult.success) {
+      console.warn('❌ Sensor reading validation failed:', {
+        deviceId: reading.deviceId,
+        metricType: reading.metricType,
+        errors: validationResult.errors
+      });
+      return false;
+    }
+
     // Basic validation
     if (!reading.deviceId) return false;
     // Note: sessionId can be null if no session is active

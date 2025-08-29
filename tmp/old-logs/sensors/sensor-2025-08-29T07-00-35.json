@@ -1,0 +1,13 @@
+{
+  "deviceId": "381c8bece2fe485bc7f549c40eb835c0",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor 35C0",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple Inc.",
+    "signalStrength": 30
+  },
+  "signalStrength": 30,
+  "timestamp": "2025-08-29T07:00:35.943Z"
+}

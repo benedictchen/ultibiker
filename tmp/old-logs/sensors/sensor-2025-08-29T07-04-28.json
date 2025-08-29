@@ -1,0 +1,13 @@
+{
+  "deviceId": "854edd30228b31fc73e2103b103c3faa",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor 3FAA",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple, Inc.",
+    "signalStrength": 30
+  },
+  "signalStrength": 30,
+  "timestamp": "2025-08-29T07:04:28.704Z"
+}

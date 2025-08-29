@@ -728,6 +728,10 @@ class UltiBikerDashboard {
             this.connectivity.serverConnected = true;
             this.updateServerStatus();
             
+            // Automatically dismiss any connection error dialogs when connection is restored
+            console.log('🔌 Auto-dismissing connection error dialogs');
+            errorHandler.hideErrorDialog();
+            
             // Subscribe to events when we connect
             this.subscribeToEvents();
         });
@@ -1668,15 +1672,15 @@ class UltiBikerDashboard {
     }
 
     updateDiscoveredDevices() {
-        const container = document.getElementById('discoveredDevices');
+        const container = document.getElementById('availableDevices');
         if (!container) return;
         
         if (this.discoveredDevices.size === 0) {
             container.innerHTML = `
-                <div class="text-center py-5 text-muted">
-                    <i class="fas fa-search fa-3x mb-3 opacity-50"></i>
-                    <p class="mb-0">Click "Start Scan" to find sensors</p>
-                    <small>ANT+ and Bluetooth devices will appear here</small>
+                <div class="text-center py-3 text-muted">
+                    <i class="fas fa-search fa-2x mb-2 opacity-50"></i>
+                    <p class="mb-0 small">No devices found</p>
+                    <small>Start scanning to find sensors</small>
                 </div>
             `;
             return;
@@ -1684,34 +1688,149 @@ class UltiBikerDashboard {
         
         container.innerHTML = '';
         
+        // Show only unconnected devices
         this.discoveredDevices.forEach(device => {
-            const isConnected = this.connectedDevices.has(device.deviceId);
-            const deviceElement = this.createDeviceElement(device, isConnected);
-            container.appendChild(deviceElement);
+            if (!this.connectedDevices.has(device.deviceId)) {
+                const deviceElement = this.createDiscoveredDeviceElement(device);
+                container.appendChild(deviceElement);
+            }
         });
+        
+        // Update sensor category slots with connected devices
+        this.updateSensorCategorySlots();
     }
 
     updateConnectedDevices() {
-        const container = document.getElementById('connectedDevices');
-        if (!container) return;
+        // Update sensor category slots with connected devices
+        this.updateSensorCategorySlots();
         
-        if (this.connectedDevices.size === 0) {
-            container.innerHTML = `
-                <div class="text-center py-5 text-muted">
-                    <i class="fas fa-unlink fa-2x mb-2 opacity-50"></i>
-                    <p class="mb-0 small">No devices connected</p>
-                    <small>Connected sensors will stream data automatically</small>
-                </div>
-            `;
-            return;
+        // Also update available devices to hide connected ones
+        this.updateDiscoveredDevices();
+    }
+    
+    updateSensorCategorySlots() {
+        const categories = {
+            'heart_rate': 'heartRateSlot',
+            'power': 'powerSlot', 
+            'cadence': 'cadenceSlot',
+            'speed': 'speedSlot',
+            'trainer': 'speedSlot' // Trainers go in speed slot
+        };
+        
+        // Reset all slots to empty state
+        Object.values(categories).forEach(slotId => {
+            this.resetSensorSlot(slotId);
+        });
+        
+        // Populate slots with connected devices
+        this.connectedDevices.forEach(device => {
+            const slotId = categories[device.type];
+            if (slotId) {
+                this.populateSensorSlot(slotId, device);
+            }
+        });
+    }
+    
+    resetSensorSlot(slotId) {
+        const slot = document.getElementById(slotId);
+        if (!slot) return;
+        
+        const deviceInfo = slot.querySelector('.sensor-device-info');
+        const emptyState = slot.querySelector('.sensor-empty-state');
+        
+        if (deviceInfo) deviceInfo.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'block';
+        
+        slot.classList.remove('connected');
+        slot.classList.add('empty');
+    }
+    
+    populateSensorSlot(slotId, device) {
+        const slot = document.getElementById(slotId);
+        if (!slot) return;
+        
+        const deviceInfo = slot.querySelector('.sensor-device-info');
+        const emptyState = slot.querySelector('.sensor-empty-state');
+        const deviceName = slot.querySelector('.sensor-device-name');
+        const deviceStatus = slot.querySelector('.sensor-device-status');
+        const deviceValue = slot.querySelector('.sensor-device-value');
+        
+        if (deviceInfo) {
+            deviceInfo.style.display = 'block';
+            deviceInfo.setAttribute('data-device-id', device.deviceId);
+        }
+        if (emptyState) emptyState.style.display = 'none';
+        if (deviceName) deviceName.textContent = device.displayName || device.name;
+        if (deviceStatus) deviceStatus.textContent = 'Connected';
+        
+        // Update with real-time sensor data if available
+        const sensorData = this.deviceMetrics.get(device.deviceId);
+        if (deviceValue && sensorData) {
+            const formattedValue = this.formatSensorValue(device.type, sensorData);
+            deviceValue.textContent = formattedValue;
+        } else if (deviceValue) {
+            deviceValue.textContent = 'No data';
         }
         
-        container.innerHTML = '';
+        slot.classList.remove('empty');
+        slot.classList.add('connected');
+    }
+    
+    formatSensorValue(deviceType, sensorData) {
+        if (!sensorData || !sensorData.lastValue) return 'No data';
         
-        this.connectedDevices.forEach(device => {
-            const deviceElement = this.createConnectedDeviceElement(device);
-            container.appendChild(deviceElement);
-        });
+        const value = sensorData.lastValue;
+        const units = {
+            'heart_rate': ' BPM',
+            'power': ' W', 
+            'cadence': ' RPM',
+            'speed': ' km/h',
+            'trainer': ' km/h'
+        };
+        
+        return `${Math.round(value)}${units[deviceType] || ''}`;
+    }
+    
+    createDiscoveredDeviceElement(device) {
+        const div = document.createElement('div');
+        div.className = 'device-list-item discovered';
+        div.id = `discovered-${device.deviceId}`;
+        
+        const typeIcon = this.getDeviceIcon(device.type);
+        const protocolIcon = device.protocol === 'ant_plus' ? 'fas fa-satellite-dish' : 'fab fa-bluetooth';
+        const signalClass = this.getSignalClass(device.signalStrength || 0);
+        
+        div.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center w-100">
+                <div class="flex-grow-1">
+                    <div class="fw-bold d-flex align-items-center mb-1">
+                        <i class="${typeIcon} me-2"></i>
+                        ${device.displayName || device.name || 'Unknown Device'}
+                        ${device.manufacturer ? `<small class="text-muted ms-2">${device.manufacturer}</small>` : ''}
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <small class="text-muted me-2">
+                            <i class="${protocolIcon} me-1"></i>
+                            ${(device.protocol || 'unknown').toUpperCase()}
+                        </small>
+                        <div class="signal-indicator ${signalClass}">
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                        </div>
+                        <small class="text-muted ms-2">${device.signalStrength || 0}%</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-sm btn-outline-primary" onclick="dashboard.connectDevice('${device.deviceId}')" title="Connect">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        return div;
     }
 
     createDeviceElement(device, isConnected) {
@@ -1744,20 +1863,31 @@ class UltiBikerDashboard {
         };
         const cyclingRelevanceInfo = getCyclingRelevanceBadge(device.cyclingRelevance);
         
+        // Generate comprehensive device information
+        const deviceDetails = this.generateDeviceDetailsHTML(device);
+        
         div.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center w-100">
+            <div class="d-flex justify-content-between align-items-start w-100">
                 <div class="flex-grow-1">
+                    <!-- Main device info -->
                     <div class="fw-bold d-flex align-items-center mb-1">
                         <i class="${typeIcon} me-2 ${device.type}"></i>
                         ${device.displayName || device.name || 'Unknown Device'}
                         ${confidenceInfo}
+                        <button class="btn btn-sm btn-link p-0 ms-2" onclick="dashboard.toggleDeviceDetails('${device.deviceId}')" title="Show device details">
+                            <i class="fas fa-info-circle text-info"></i>
+                        </button>
                     </div>
+                    
+                    <!-- Badge row -->
                     <div class="d-flex align-items-center flex-wrap mb-1">
                         ${cyclingRelevanceInfo}
                         ${manufacturerInfo}
                         ${categoryInfo}
                     </div>
-                    <div class="d-flex align-items-center justify-content-between">
+                    
+                    <!-- Connection info row -->
+                    <div class="d-flex align-items-center justify-content-between mb-2">
                         <div class="d-flex align-items-center">
                             <small class="text-muted me-2">
                                 <i class="${protocolIcon} me-1"></i>
@@ -1776,16 +1906,24 @@ class UltiBikerDashboard {
                             ${sensorDataDisplay}
                         </div>
                     </div>
+                    
+                    <!-- Expandable device details -->
+                    <div id="device-details-${device.deviceId}" class="device-details-panel d-none">
+                        ${deviceDetails}
+                    </div>
                 </div>
-                <div>
+                
+                <!-- Action buttons -->
+                <div class="d-flex flex-column align-items-end">
                     ${isConnected 
-                        ? `<button class="btn btn-sm btn-outline-danger" onclick="dashboard.disconnectDevice('${device.deviceId}')" title="Disconnect">
+                        ? `<button class="btn btn-sm btn-outline-danger mb-1" onclick="dashboard.disconnectDevice('${device.deviceId}')" title="Disconnect">
                              <i class="fas fa-unlink"></i>
                            </button>`
-                        : `<button class="btn btn-sm btn-outline-primary" onclick="dashboard.connectDevice('${device.deviceId}')" title="Connect">
+                        : `<button class="btn btn-sm btn-outline-primary mb-1" onclick="dashboard.connectDevice('${device.deviceId}')" title="Connect">
                              <i class="fas fa-link"></i> Add
                            </button>`
                     }
+                    <small class="text-muted">${device.deviceId.slice(-4)}</small>
                 </div>
             </div>
         `;
@@ -2339,6 +2477,8 @@ class UltiBikerDashboard {
     }
     
     updateSessionUI(isActive, sessionId = null, sessionName = null) {
+        console.log(`🔄 updateSessionUI called: isActive=${isActive}, sessionId=${sessionId}, sessionName=${sessionName}`);
+        
         const startBtn = document.getElementById('startSessionBtn');
         const stopBtn = document.getElementById('stopSessionBtn');
         const sessionStatus = document.getElementById('sessionStatus');
@@ -2348,15 +2488,42 @@ class UltiBikerDashboard {
         const pauseBtn = document.getElementById('pauseSessionBtn');
         const exportBtn = document.getElementById('exportSessionBtn');
         
+        // Debug: Log element availability
+        const elements = { startBtn, stopBtn, sessionStatus, recordingStatus, recordingIndicator, sessionControls, pauseBtn, exportBtn };
+        const missingElements = Object.entries(elements).filter(([name, el]) => !el).map(([name]) => name);
+        if (missingElements.length > 0) {
+            console.warn(`⚠️ Missing DOM elements: ${missingElements.join(', ')}`);
+        }
+        
         this.isRecording = isActive;
         this.currentSessionId = sessionId;
         
+        // Helper function to reliably hide elements
+        const forceHide = (element, elementName) => {
+            if (element) {
+                element.style.setProperty('display', 'none', 'important');
+                element.classList.add('d-none');
+                console.log(`✅ ${elementName} hidden with display: none !important and d-none class`);
+            }
+        };
+        
+        // Helper function to reliably show elements
+        const forceShow = (element, displayType, elementName) => {
+            if (element) {
+                element.classList.remove('d-none');
+                element.style.setProperty('display', displayType, 'important');
+                console.log(`✅ ${elementName} shown with display: ${displayType} !important`);
+            }
+        };
+        
         if (isActive) {
-            if (startBtn) startBtn.style.display = 'none';
-            if (stopBtn) stopBtn.style.display = 'inline-block';
-            if (sessionControls) sessionControls.style.display = 'flex';
-            if (pauseBtn) pauseBtn.style.display = 'inline-block';
-            if (exportBtn) exportBtn.style.display = 'inline-block';
+            console.log('🟢 Setting UI to active session state');
+            forceHide(startBtn, 'startBtn');
+            forceShow(stopBtn, 'inline-block', 'stopBtn');
+            forceShow(sessionControls, 'flex', 'sessionControls');
+            forceShow(pauseBtn, 'inline-block', 'pauseBtn');
+            forceShow(exportBtn, 'inline-block', 'exportBtn');
+            
             if (sessionStatus) {
                 sessionStatus.innerHTML = `<span class="badge bg-success">Active Session</span>`;
                 if (sessionName) {
@@ -2369,11 +2536,13 @@ class UltiBikerDashboard {
             }
             if (recordingIndicator) recordingIndicator.style.display = 'inline';
         } else {
-            if (startBtn) startBtn.style.display = 'inline-block';
-            if (stopBtn) stopBtn.style.display = 'none';
-            if (sessionControls) sessionControls.style.display = 'none';
-            if (pauseBtn) pauseBtn.style.display = 'none';
-            if (exportBtn) exportBtn.style.display = 'none';
+            console.log('🔴 Setting UI to inactive session state - HIDING pause/export buttons');
+            forceShow(startBtn, 'inline-block', 'startBtn');
+            forceHide(stopBtn, 'stopBtn');
+            forceHide(sessionControls, 'sessionControls');
+            forceHide(pauseBtn, 'pauseBtn');
+            forceHide(exportBtn, 'exportBtn');
+            
             if (sessionStatus) {
                 sessionStatus.innerHTML = '<span class="badge bg-secondary">No Active Session</span>';
             }
@@ -2383,6 +2552,43 @@ class UltiBikerDashboard {
             }
             if (recordingIndicator) recordingIndicator.style.display = 'none';
         }
+        
+        // Verify the final state after a short delay to catch any race conditions
+        setTimeout(() => {
+            if (!isActive) {
+                const finalSessionControls = document.getElementById('sessionControls');
+                const finalPauseBtn = document.getElementById('pauseSessionBtn');
+                const finalExportBtn = document.getElementById('exportSessionBtn');
+                
+                // Check if elements are properly hidden
+                const isControlsVisible = finalSessionControls && window.getComputedStyle(finalSessionControls).display !== 'none';
+                const isPauseVisible = finalPauseBtn && window.getComputedStyle(finalPauseBtn).display !== 'none';
+                const isExportVisible = finalExportBtn && window.getComputedStyle(finalExportBtn).display !== 'none';
+                
+                if (isControlsVisible || isPauseVisible || isExportVisible) {
+                    console.error('❌ SESSION UI BUG DETECTED: Buttons visible when session inactive!');
+                    console.error(`   sessionControls visible: ${isControlsVisible}`);
+                    console.error(`   pauseBtn visible: ${isPauseVisible}`);  
+                    console.error(`   exportBtn visible: ${isExportVisible}`);
+                    
+                    // Force hide again with maximum specificity
+                    if (finalSessionControls) {
+                        finalSessionControls.style.setProperty('display', 'none', 'important');
+                        finalSessionControls.classList.add('d-none');
+                    }
+                    if (finalPauseBtn) {
+                        finalPauseBtn.style.setProperty('display', 'none', 'important');
+                        finalPauseBtn.classList.add('d-none');
+                    }
+                    if (finalExportBtn) {
+                        finalExportBtn.style.setProperty('display', 'none', 'important');
+                        finalExportBtn.classList.add('d-none');
+                    }
+                } else {
+                    console.log('✅ Session UI verified: All buttons properly hidden when inactive');
+                }
+            }
+        }, 100);
     }
 
     startLiveTimeUpdate() {
@@ -3022,6 +3228,10 @@ class UltiBikerDashboard {
             // Update connectivity status
             this.connectivity.serverConnected = true;
             this.updateServerStatus();
+            
+            // Auto-dismiss connection error dialogs when circuit breaker recovers
+            console.log('✅ Auto-dismissing connection error dialogs - circuit breaker recovered');
+            errorHandler.hideErrorDialog();
         }
     }
     
@@ -3379,9 +3589,14 @@ class UltiBikerDashboard {
             }
             this.showConnectivityBar(internetBar);
         } else if (this.connectivity.isOnline) {
-            // Hide offline bar when online
+            // Hide offline bar when online - always hide regardless of dismissal
+            console.log('🌐 Internet connected - auto-hiding connectivity bar');
             this.connectivity.internetBarDismissed = false; // Reset dismissal
-            this.hideConnectivityBar(internetBar);
+            
+            // Force hide the bar even if it was manually dismissed
+            if (internetBar && !internetBar.classList.contains('d-none')) {
+                this.hideConnectivityBar(internetBar);
+            }
         }
     }
     
@@ -3411,10 +3626,15 @@ class UltiBikerDashboard {
             }
             this.showConnectivityBar(serverBar);
         } else if (this.connectivity.serverConnected) {
-            // Hide disconnected bar when connected
+            // Hide disconnected bar when connected - always hide regardless of dismissal
+            console.log('🔗 Server connected - auto-hiding connectivity bar');
             this.connectivity.serverBarDismissed = false; // Reset dismissal
             this.connectivity.reconnectAttempts = 0; // Reset attempts
-            this.hideConnectivityBar(serverBar);
+            
+            // Force hide the bar even if it was manually dismissed
+            if (serverBar && !serverBar.classList.contains('d-none')) {
+                this.hideConnectivityBar(serverBar);
+            }
         }
     }
     
@@ -3452,12 +3672,14 @@ class UltiBikerDashboard {
     
     dismissServerBar() {
         const serverBar = document.getElementById('serverStatusBar');
+        console.log('🔗 User manually dismissed server connectivity bar');
         this.connectivity.serverBarDismissed = true;
         this.hideConnectivityBar(serverBar);
         
         // Auto-show again after 2 minutes if still disconnected
         setTimeout(() => {
             if (!this.connectivity.serverConnected) {
+                console.log('🔗 Auto-showing server connectivity bar after 2 minutes');
                 this.connectivity.serverBarDismissed = false;
                 this.updateServerStatus();
             }
@@ -3489,6 +3711,10 @@ class UltiBikerDashboard {
                 this.connectivity.serverConnected = true;
                 this.connectivity.reconnectAttempts = 0;
                 this.updateServerStatus();
+                
+                // Auto-dismiss connection error dialogs when manual reconnection succeeds
+                console.log('🔗 Auto-dismissing connection error dialogs - manual reconnection succeeded');
+                errorHandler.hideErrorDialog();
             }
         } catch (error) {
             console.log(`🔗 Reconnection attempt ${this.connectivity.reconnectAttempts} failed:`, error);
@@ -3628,6 +3854,318 @@ class UltiBikerDashboard {
         if (!timestamp) return 'Unknown';
         return dateFns.format(new Date(timestamp), 'MMM dd, yyyy HH:mm:ss');
     }
+    
+    generateDeviceDetailsHTML(device) {
+        if (!device) return '<p class="text-muted">No device data available</p>';
+        
+        let html = '<div class="device-details-content">';
+        
+        // Basic device information section
+        html += '<div class="detail-section">';
+        html += '<h6 class="detail-section-title"><i class="fas fa-info-circle me-1"></i>Device Information</h6>';
+        html += '<div class="detail-grid">';
+        html += `<div class="detail-item"><strong>Device ID:</strong> <code>${device.deviceId}</code></div>`;
+        html += `<div class="detail-item"><strong>Name:</strong> ${device.name || 'Unknown'}</div>`;
+        if (device.displayName && device.displayName !== device.name) {
+            html += `<div class="detail-item"><strong>Display Name:</strong> ${device.displayName}</div>`;
+        }
+        html += `<div class="detail-item"><strong>Type:</strong> <span class="badge bg-primary">${device.type || 'unknown'}</span></div>`;
+        html += `<div class="detail-item"><strong>Protocol:</strong> <span class="badge bg-info">${device.protocol || 'unknown'}</span></div>`;
+        if (device.manufacturer) {
+            html += `<div class="detail-item"><strong>Manufacturer:</strong> ${device.manufacturer}</div>`;
+        }
+        if (device.model) {
+            html += `<div class="detail-item"><strong>Model:</strong> ${device.model}</div>`;
+        }
+        if (device.category) {
+            html += `<div class="detail-item"><strong>Category:</strong> ${device.category}</div>`;
+        }
+        if (device.confidence) {
+            html += `<div class="detail-item"><strong>ID Confidence:</strong> <span class="badge ${device.confidence >= 80 ? 'bg-success' : device.confidence >= 50 ? 'bg-warning' : 'bg-danger'}">${device.confidence}%</span></div>`;
+        }
+        html += '</div></div>';
+        
+        // Connection information section
+        html += '<div class="detail-section">';
+        html += '<h6 class="detail-section-title"><i class="fas fa-wifi me-1"></i>Connection Details</h6>';
+        html += '<div class="detail-grid">';
+        html += `<div class="detail-item"><strong>Connected:</strong> <span class="badge ${device.isConnected ? 'bg-success' : 'bg-secondary'}">${device.isConnected ? 'Yes' : 'No'}</span></div>`;
+        html += `<div class="detail-item"><strong>Signal Strength:</strong> <span class="badge ${device.signalStrength >= 80 ? 'bg-success' : device.signalStrength >= 60 ? 'bg-warning' : 'bg-danger'}">${device.signalStrength || 0}%</span></div>`;
+        if (device.batteryLevel) {
+            html += `<div class="detail-item"><strong>Battery Level:</strong> <span class="badge bg-success">${device.batteryLevel}%</span></div>`;
+        }
+        if (device.cyclingRelevance) {
+            html += `<div class="detail-item"><strong>Cycling Relevance:</strong> <span class="badge ${device.cyclingRelevance >= 80 ? 'bg-success' : device.cyclingRelevance >= 50 ? 'bg-warning' : 'bg-info'}">${device.cyclingRelevance}/100</span></div>`;
+        }
+        html += '</div></div>';
+        
+        // Firmware/Hardware information
+        if (device.firmwareVersion || device.metadata?.hardwareRevision || device.metadata?.firmwareRevision || device.metadata?.softwareRevision) {
+            html += '<div class="detail-section">';
+            html += '<h6 class="detail-section-title"><i class="fas fa-microchip me-1"></i>Firmware & Hardware</h6>';
+            html += '<div class="detail-grid">';
+            if (device.firmwareVersion) {
+                html += `<div class="detail-item"><strong>Firmware Version:</strong> ${device.firmwareVersion}</div>`;
+            }
+            if (device.metadata?.hardwareRevision) {
+                html += `<div class="detail-item"><strong>Hardware Rev:</strong> ${device.metadata.hardwareRevision}</div>`;
+            }
+            if (device.metadata?.firmwareRevision && device.metadata.firmwareRevision !== device.firmwareVersion) {
+                html += `<div class="detail-item"><strong>Firmware Rev:</strong> ${device.metadata.firmwareRevision}</div>`;
+            }
+            if (device.metadata?.softwareRevision) {
+                html += `<div class="detail-item"><strong>Software Rev:</strong> ${device.metadata.softwareRevision}</div>`;
+            }
+            if (device.metadata?.serialNumber) {
+                html += `<div class="detail-item"><strong>Serial Number:</strong> <code>${device.metadata.serialNumber}</code></div>`;
+            }
+            html += '</div></div>';
+        }
+        
+        // Services and Characteristics (for BLE devices)
+        if (device.services && device.services.length > 0) {
+            html += '<div class="detail-section">';
+            html += '<h6 class="detail-section-title"><i class="fab fa-bluetooth me-1"></i>BLE Services</h6>';
+            html += '<div class="services-list">';
+            device.services.forEach(service => {
+                html += `<div class="service-item">`;
+                html += `<strong>${service.name}</strong> <code class="text-muted">${service.uuid}</code>`;
+                if (service.description) {
+                    html += `<br><small class="text-muted">${service.description}</small>`;
+                }
+                html += `</div>`;
+            });
+            html += '</div></div>';
+        }
+        
+        // Capabilities
+        if (device.capabilities && device.capabilities.length > 0) {
+            html += '<div class="detail-section">';
+            html += '<h6 class="detail-section-title"><i class="fas fa-cogs me-1"></i>Capabilities</h6>';
+            html += '<div class="capabilities-list">';
+            device.capabilities.forEach(capability => {
+                html += `<span class="badge bg-light text-dark me-1 mb-1">${capability}</span>`;
+            });
+            html += '</div></div>';
+        }
+        
+        // Raw advertisement data (if available)
+        if (device.metadata?.rawAdvertisement) {
+            const rawData = device.metadata.rawAdvertisement;
+            html += '<div class="detail-section">';
+            html += '<h6 class="detail-section-title"><i class="fas fa-code me-1"></i>Raw Advertisement Data</h6>';
+            html += '<div class="raw-data-container">';
+            
+            if (rawData.address) {
+                html += `<div class="detail-item"><strong>Address:</strong> <code>${rawData.address}</code></div>`;
+            }
+            if (rawData.addressType) {
+                html += `<div class="detail-item"><strong>Address Type:</strong> ${rawData.addressType}</div>`;
+            }
+            if (rawData.connectable !== undefined) {
+                html += `<div class="detail-item"><strong>Connectable:</strong> <span class="badge ${rawData.connectable ? 'bg-success' : 'bg-warning'}">${rawData.connectable ? 'Yes' : 'No'}</span></div>`;
+            }
+            
+            // Manufacturer data
+            if (rawData.manufacturerData && Object.keys(rawData.manufacturerData).length > 0) {
+                html += '<div class="manufacturer-data">';
+                html += '<strong>Manufacturer Data:</strong>';
+                Object.entries(rawData.manufacturerData).forEach(([companyId, data]) => {
+                    html += `<div class="ms-2"><code>Company ID ${companyId}:</code> ${Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' ')}</div>`;
+                });
+                html += '</div>';
+            }
+            
+            // Service data
+            if (rawData.serviceData && Object.keys(rawData.serviceData).length > 0) {
+                html += '<div class="service-data">';
+                html += '<strong>Service Data:</strong>';
+                Object.entries(rawData.serviceData).forEach(([serviceUuid, data]) => {
+                    html += `<div class="ms-2"><code>${serviceUuid}:</code> ${Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' ')}</div>`;
+                });
+                html += '</div>';
+            }
+            
+            // TX Power Level
+            if (rawData.txPowerLevel !== undefined) {
+                html += `<div class="detail-item"><strong>TX Power Level:</strong> ${rawData.txPowerLevel} dBm</div>`;
+            }
+            
+            // Service UUIDs
+            if (rawData.serviceUuids && rawData.serviceUuids.length > 0) {
+                html += '<div class="service-uuids">';
+                html += '<strong>Advertised Service UUIDs:</strong>';
+                rawData.serviceUuids.forEach(uuid => {
+                    html += `<div class="ms-2"><code>${uuid}</code></div>`;
+                });
+                html += '</div>';
+            }
+            
+            html += '</div></div>';
+        }
+        
+        html += '</div>';
+        return html;
+    }
+    
+    toggleDeviceDetails(deviceId) {
+        const detailsPanel = document.getElementById(`device-details-${deviceId}`);
+        const toggleButton = document.querySelector(`#device-${deviceId} .btn-link i`);
+        
+        if (!detailsPanel || !toggleButton) {
+            console.warn(`Device details panel or toggle button not found for device: ${deviceId}`);
+            return;
+        }
+        
+        const isExpanded = !detailsPanel.classList.contains('d-none');
+        
+        if (isExpanded) {
+            // Collapse
+            detailsPanel.classList.add('d-none');
+            toggleButton.className = 'fas fa-info-circle text-info';
+            toggleButton.parentElement.title = 'Show device details';
+        } else {
+            // Expand
+            detailsPanel.classList.remove('d-none');
+            toggleButton.className = 'fas fa-info-circle text-warning';
+            toggleButton.parentElement.title = 'Hide device details';
+        }
+    }
+
+    // Apple Watch setup and management
+    showAppleWatchSetup() {
+        const setupDiv = document.getElementById('appleWatchSetup');
+        if (setupDiv) {
+            setupDiv.style.display = 'block';
+            setupDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    hideAppleWatchSetup() {
+        const setupDiv = document.getElementById('appleWatchSetup');
+        if (setupDiv) {
+            setupDiv.style.display = 'none';
+        }
+    }
+
+    async showAppleWatchGuide() {
+        try {
+            // Fetch Apple Watch setup instructions from API
+            const response = await fetch('/api/permissions/apple-watch-setup');
+            const data = await response.json();
+            
+            if (data.success) {
+                const instructions = data.data;
+                this.displayAppleWatchModal(instructions);
+            } else {
+                throw new Error(data.error || 'Failed to load Apple Watch setup instructions');
+            }
+        } catch (error) {
+            console.error('Error loading Apple Watch guide:', error);
+            this.showNotification('Failed to load Apple Watch setup guide', 'error');
+        }
+    }
+
+    displayAppleWatchModal(instructions) {
+        // Create modal content
+        const modalContent = `
+            <div class="modal fade" id="appleWatchModal" tabindex="-1" aria-labelledby="appleWatchModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title" id="appleWatchModalLabel">
+                                <span class="me-2">🍎</span>${instructions.title}
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="lead">${instructions.description}</p>
+                            
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6><strong>Setup Steps:</strong></h6>
+                                    <ol class="mb-4">
+                                        ${instructions.steps.map(step => `<li>${step}</li>`).join('')}
+                                    </ol>
+                                    
+                                    <h6><strong>Recommended Apps:</strong></h6>
+                                    <ul class="mb-4">
+                                        ${instructions.requiredApps.map(app => `<li>${app}</li>`).join('')}
+                                    </ul>
+                                    
+                                    <div class="alert alert-warning">
+                                        <h6><strong>Limitations:</strong></h6>
+                                        <ul class="mb-0">
+                                            ${instructions.limitations.map(limitation => `<li>${limitation}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                    
+                                    <div class="alert alert-info">
+                                        <h6><strong>Troubleshooting:</strong></h6>
+                                        <ul class="mb-0">
+                                            ${instructions.troubleshooting.map(tip => `<li>${tip}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div style="font-size: 5rem; margin: 2rem 0;">⌚️</div>
+                                    <p class="text-muted">Apple Watch + iPhone</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close Guide</button>
+                            <button type="button" class="btn btn-primary" onclick="dashboard.startDeviceScanning(); bootstrap.Modal.getInstance(document.getElementById('appleWatchModal')).hide();">
+                                🔍 Start Device Scan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remove existing modal if present
+        const existingModal = document.getElementById('appleWatchModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Add modal to DOM
+        document.body.insertAdjacentHTML('beforeend', modalContent);
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('appleWatchModal'));
+        modal.show();
+
+        // Clean up modal when hidden
+        document.getElementById('appleWatchModal').addEventListener('hidden.bs.modal', () => {
+            document.getElementById('appleWatchModal').remove();
+        });
+    }
+
+    // Auto-detect macOS and show Apple Watch setup hint
+    checkForAppleWatchSupport() {
+        // Check if running on macOS (best Apple Watch support)
+        const isMacOS = navigator.platform.toLowerCase().includes('mac');
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        
+        if (isMacOS || isIOS) {
+            // Show hint for Apple Watch users
+            setTimeout(() => {
+                if (!localStorage.getItem('apple-watch-hint-shown')) {
+                    this.showNotification(
+                        '🍎 Apple Watch detected! Set up heart rate monitoring for cycling sessions.',
+                        'info',
+                        { 
+                            duration: 8000,
+                            onclick: () => this.showAppleWatchSetup()
+                        }
+                    );
+                    localStorage.setItem('apple-watch-hint-shown', 'true');
+                }
+            }, 3000);
+        }
+    }
 }
 
 // Initialize dashboard when page loads
@@ -3637,6 +4175,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Make dashboard globally accessible for error handler
     window.dashboard = dashboard;
+    
+    // Check for Apple Watch support on Apple platforms
+    dashboard.checkForAppleWatchSupport();
     
     // Test error handling (remove in production)
     if (window.location.hash === '#test-errors') {

@@ -1,0 +1,13 @@
+{
+  "deviceId": "92eee981b63a03a3bff9d666f40ad403",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "CloudPrint_0584",
+    "protocol": "bluetooth",
+    "manufacturer": "Company ID 1A2B",
+    "signalStrength": 5
+  },
+  "signalStrength": 5,
+  "timestamp": "2025-08-29T07:00:36.847Z"
+}

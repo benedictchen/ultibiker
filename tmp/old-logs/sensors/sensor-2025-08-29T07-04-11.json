@@ -1,0 +1,13 @@
+{
+  "deviceId": "43bf9396dda1910212100aaba44629b8",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Remo-85C344",
+    "protocol": "bluetooth",
+    "manufacturer": "Company ID 5701",
+    "signalStrength": 17
+  },
+  "signalStrength": 17,
+  "timestamp": "2025-08-29T07:04:11.979Z"
+}

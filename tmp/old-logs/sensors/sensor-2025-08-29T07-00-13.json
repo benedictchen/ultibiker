@@ -1,0 +1,13 @@
+{
+  "deviceId": "228f2b9820c7a78a926861c4c36ea989",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "BlazePod",
+    "protocol": "bluetooth",
+    "manufacturer": "Company ID 9D7",
+    "signalStrength": 42
+  },
+  "signalStrength": 42,
+  "timestamp": "2025-08-29T07:00:13.863Z"
+}

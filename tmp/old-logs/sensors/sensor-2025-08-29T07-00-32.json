@@ -1,0 +1,13 @@
+{
+  "deviceId": "33ffafa35ff595034c7b22c9d4ecba1f",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor BA1F",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple Inc.",
+    "signalStrength": 7
+  },
+  "signalStrength": 7,
+  "timestamp": "2025-08-29T07:00:32.955Z"
+}

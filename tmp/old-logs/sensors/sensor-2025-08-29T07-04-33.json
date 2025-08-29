@@ -1,0 +1,13 @@
+{
+  "deviceId": "c58dfa0327d86c8e70ddade26da36323",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "BlazePod",
+    "protocol": "bluetooth",
+    "manufacturer": "Coyotta",
+    "signalStrength": 50
+  },
+  "signalStrength": 50,
+  "timestamp": "2025-08-29T07:04:33.802Z"
+}

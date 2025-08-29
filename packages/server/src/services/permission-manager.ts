@@ -22,6 +22,15 @@ export interface PermissionStatus {
   instructions?: string[];
 }
 
+export interface AppleWatchSetupInstructions {
+  title: string;
+  description: string;
+  steps: string[];
+  requiredApps: string[];
+  limitations: string[];
+  troubleshooting: string[];
+}
+
 export interface DevicePermissions {
   bluetooth: PermissionStatus;
   usb: PermissionStatus;
@@ -584,6 +593,45 @@ export class PermissionManager extends EventEmitter {
     return report;
   }
 
+  getAppleWatchSetupInstructions(): AppleWatchSetupInstructions {
+    return {
+      title: "Apple Watch Heart Rate Integration",
+      description: "Connect your Apple Watch to UltiBiker for real-time heart rate monitoring during cycling sessions. Your Apple Watch can broadcast heart rate data to UltiBiker using third-party apps.",
+      
+      steps: [
+        "Install a heart rate broadcasting app on your Apple Watch from the App Store",
+        "Open the chosen app on your Apple Watch",
+        "Start heart rate broadcasting in the app",
+        "Open UltiBiker and click 'Start Device Scan'",
+        "Look for 'Apple Watch' in the discovered devices list",
+        "Click 'Connect' next to your Apple Watch device",
+        "Start a cycling session to see live heart rate data"
+      ],
+      
+      requiredApps: [
+        "HeartCast (Free) - Simple and reliable heart rate broadcasting",
+        "HRM Heart Rate Monitor - Compatible with most cycling computers", 
+        "BlueHeart - Works with Wahoo, Garmin, and other fitness equipment",
+        "ECHO HR - Professional-grade heart rate broadcasting"
+      ],
+      
+      limitations: [
+        "Only heart rate data is available (no power or cadence from Apple Watch)",
+        "Requires keeping iPhone nearby during workouts",
+        "Broadcasting apps may drain Apple Watch battery faster",
+        "Connection depends on third-party app reliability"
+      ],
+      
+      troubleshooting: [
+        "If Apple Watch doesn't appear: Ensure broadcasting app is running and active",
+        "If connection fails: Restart the broadcasting app and try scanning again",
+        "If data is inconsistent: Check Apple Watch is properly fitted and clean",
+        "If battery drains quickly: Use only during workouts, not all day",
+        "If app crashes: Try a different broadcasting app from the recommended list"
+      ]
+    };
+  }
+
   async createPermissionGuide(): Promise<string> {
     const permissions = await this.checkAllPermissions();
     const guide: string[] = [];
@@ -611,6 +659,13 @@ export class PermissionManager extends EventEmitter {
         guide.push('1. Connect a Garmin ANT+ USB stick');
         guide.push('2. macOS should automatically detect it');
         guide.push('3. No additional permissions needed for USB devices');
+        guide.push('');
+        guide.push('### Apple Watch Heart Rate Setup (Recommended for Mac users)');
+        guide.push('1. Install HeartCast, HRM, or BlueHeart app on Apple Watch');
+        guide.push('2. Open the app on your Apple Watch and start broadcasting');
+        guide.push('3. Your Apple Watch will appear as "Apple Watch Heart Rate" in UltiBiker');
+        guide.push('4. Connect just like any other Bluetooth sensor');
+        guide.push('5. Keep iPhone nearby during workouts for relay connection');
         break;
         
       case 'linux':

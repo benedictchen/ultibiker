@@ -1,0 +1,13 @@
+{
+  "deviceId": "f0ff46339a79f6373ca90bff20b31a43",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor 1A43",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple Inc.",
+    "signalStrength": 55
+  },
+  "signalStrength": 55,
+  "timestamp": "2025-08-29T07:01:01.665Z"
+}

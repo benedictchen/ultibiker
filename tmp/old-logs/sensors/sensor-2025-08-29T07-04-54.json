@@ -1,0 +1,13 @@
+{
+  "deviceId": "d5dd5da0126b80ac8e58ea8eb228d77d",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor D77D",
+    "protocol": "bluetooth",
+    "manufacturer": "Apple, Inc.",
+    "signalStrength": 63
+  },
+  "signalStrength": 63,
+  "timestamp": "2025-08-29T07:04:54.782Z"
+}

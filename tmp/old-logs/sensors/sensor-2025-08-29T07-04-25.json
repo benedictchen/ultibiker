@@ -1,0 +1,13 @@
+{
+  "deviceId": "d96ddd7b67b92d7e0b2fd1fe501450fa",
+  "sensorType": "heart_rate",
+  "event": "device_discovered",
+  "data": {
+    "name": "Cycling Sensor 50FA",
+    "protocol": "bluetooth",
+    "manufacturer": "Sony Corporation",
+    "signalStrength": 17
+  },
+  "signalStrength": 17,
+  "timestamp": "2025-08-29T07:04:25.712Z"
+}
