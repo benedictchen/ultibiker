@@ -6,9 +6,13 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter @ultibiker/server dev",
+    "dev:web": "pnpm --filter @ultibiker/web dev",
+    "dev:all": "concurrently --names \"API,WEB\" --prefix-colors \"blue,green\" \"pnpm dev\" \"pnpm dev:web\"",
     "build": "pnpm --recursive run build",
     "build:core": "pnpm --filter @ultibiker/core build",
+    "build:shared": "pnpm --filter @ultibiker/shared build",
     "build:server": "pnpm --filter @ultibiker/server build",
+    "build:web": "pnpm --filter @ultibiker/web build",
     "start": "pnpm --filter @ultibiker/server start",
     "db:setup": "pnpm --filter @ultibiker/server db:setup",
     "db:generate": "pnpm --filter @ultibiker/server db:generate",
@@ -40,6 +44,8 @@
     "type-check": "pnpm --recursive run type-check"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
+    "puppeteer": "^24.17.1",
     "tsx": "^4.20.5",
     "typescript": "^5.3.3"
   },

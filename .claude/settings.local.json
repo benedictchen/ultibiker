@@ -92,7 +92,14 @@
       "Bash(npx vitest:*)",
       "Bash(PORT=3001 timeout 15s pnpm --filter @ultibiker/server dev)",
       "Read(/tmp/**)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(PORT=3000 pnpm --filter @ultibiker/web dev)",
+      "Read(/tmp/**)",
+      "Read(/tmp/**)",
+      "Bash(npx puppeteer browsers:*)",
+      "Read(/tmp/**)",
+      "Read(/tmp/**)"
     ],
     "deny": [],
     "ask": []
