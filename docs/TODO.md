@@ -2,33 +2,104 @@
 
 ## 🚨 Critical Issues (Fix First)
 
+### 🔒 Security Vulnerabilities (IMMEDIATE)
+- [ ] ~~**CORS Configuration**~~ - **REDUCED PRIORITY** for Electron app
+  - **Files**: `src/config/env.ts` line 71, `src/websocket/socket-handler.ts` line 42
+  - **Impact**: 🟡 LOW - Not critical for Electron desktop app
+  - **Reason**: Electron apps don't face same CORS risks as web deployment
+  - **Future**: Will be critical for cloud web service deployment
+
+- [ ] ~~**Request Body Size Limits**~~ - **REDUCED PRIORITY** for Electron app
+  - **Files**: `src/middleware/security.ts`
+  - **Impact**: 🟡 LOW - Less critical for desktop app (controlled environment)
+  - **Reason**: Electron apps have controlled access, not exposed to internet attacks
+  - **Future**: Will be critical for cloud API endpoints
+
+- [ ] ~~**API Authentication**~~ - **REMOVED** - Not needed for Electron app MVP
+  - **Reason**: This will become an Electron desktop app, not a web service
+  - **Future**: JWT authentication will be implemented in cloud deployment phase
+
+### 🔧 Production Readiness (HIGH PRIORITY)
+- [ ] **Add Graceful Shutdown Handling** - Proper cleanup of sensors/database/websockets
+  - **Files**: `src/server.ts` lines 193-210
+  - **Solution**: Implement signal handlers (SIGTERM, SIGINT) with cleanup sequence
+  - **Impact**: 🔥 HIGH - Data loss prevention
+
+- [ ] ~~**Health Check Endpoints**~~ - **REDUCED PRIORITY** for Electron app  
+  - **Files**: `src/server.ts`, create `src/api/health.ts`
+  - **Impact**: 🟡 LOW - Not needed for desktop app deployment
+  - **Reason**: Electron apps don't need external health monitoring
+  - **Future**: Will be needed for cloud service deployment
+
+- [ ] **Add Database Connection Pooling** - Production scalability
+  - **Files**: `src/database/db.ts` lines 37-57
+  - **Solution**: Implement connection pool management and health checks
+  - **Impact**: 🔥 HIGH - Production reliability
+
+### 🏥 Reliability Issues (HIGH PRIORITY)
+- [ ] **Add Sensor Connection Timeouts** - Prevent hanging connections
+  - **Files**: `src/sensors/sensor-manager.ts` lines 28-33
+  - **Solution**: 30s timeout with exponential backoff retry
+  - **Impact**: 🔥 HIGH - User experience degradation
+
+- [ ] **Add Device Reconnection Handling** - Auto-reconnect dropped sensors
+  - **Files**: `src/sensors/ble-manager.ts`, `src/sensors/ant-manager.ts`
+  - **Solution**: Monitor connection health, implement reconnection logic
+  - **Impact**: 🔥 HIGH - Session interruption prevention
+
+### 📋 Comprehensive Error Logging & Crash Reporting (CRITICAL)
+- [ ] **Frontend Error Reporting** - Send UI errors to backend logging system
+  - **Files**: `public/dashboard.js`, create `src/api/errors.ts` endpoint  
+  - **Solution**: Capture JS errors, network failures, send to `/api/errors/report`
+  - **Logging**: Write to `output/logs/frontend-errors.log` with timestamps
+  - **Impact**: 🔥 CRITICAL - Debug production issues
+
+- [ ] **Structured Server Crash Reports** - Comprehensive crash dump before exit
+  - **Files**: `src/server.ts`, `src/services/crash-logger.ts`
+  - **Solution**: uncaughtException handler, process.on('SIGTERM/SIGINT')
+  - **Output**: `output/logs/crash-reports/crash-YYYY-MM-DD-HH-mm-ss.json`
+  - **Include**: Stack trace, memory usage, sensor states, connected devices
+  - **Impact**: 🔥 CRITICAL - Production debugging and reliability
+
+- [ ] **Centralized Log Directory Structure** - Organized logging system
+  - **Directory**: `output/logs/` with subdirectories:
+    - `frontend-errors/` - UI errors, user actions
+    - `sensor-events/` - Device connections, data streams  
+    - `crash-reports/` - Server failures, unhandled exceptions
+    - `performance/` - Memory usage, response times
+    - `security/` - Authentication failures, suspicious requests
+  - **Libraries**: `winston-daily-rotate-file`, `morgan` for HTTP logs
+  - **Impact**: 🔥 HIGH - Production monitoring and debugging
+
+- [ ] **Real-time Error Monitoring** - Live error tracking dashboard
+  - **Files**: Create `src/api/monitoring.ts`, update dashboard UI
+  - **Features**: Error count, crash frequency, system health status
+  - **Integration**: WebSocket notifications for critical errors
+  - **Impact**: 🟡 Medium - Proactive issue detection
+
 ### UI Consistency Issues
-- [ ] **Fix Session UI Inconsistency** - Pause/Export buttons showing when status is "waiting for session"
-  - Location: `public/dashboard.js` - connect button states to actual session status
-  - Impact: User confusion about app state
+- [x] ✅ **Fix Session UI Inconsistency** - Pause/Export buttons showing when status is "waiting for session"
+  - Completed: Sensor Type Categories implementation fixed UI organization
+- [x] ✅ **Implement Sensor Type Categories** - Replace generic sensor list with Power/HR/Cadence/Speed slots
+  - Completed: Added organized sensor category cards with proper state management
 
 ### Permission System
 - [x] ✅ **Permission Visibility** - Show users when app lacks Bluetooth/USB permissions
   - Completed: Added permission alert UI in `public/index.html` and `public/dashboard.js`
-- [ ] **OS Permission Request Button** - Add button to permission dialog that triggers native OS permission requests
-  - **Libraries**: Research cross-platform permission libraries, leverage existing electron/node solutions
-  - **Files**: `public/dashboard.js`, `src/services/permission-manager.ts`
-  - **Impact**: 🔥 Critical - Users can't grant permissions without this
-- [ ] **Comprehensive BLE Device Identification** - Show manufacturer, model, device type instead of generic "BLE Device"
-  - **Libraries**: `advlib-ble-manufacturers`, bluetooth-numbers-database, device info service parsing
-  - **Files**: `src/sensors/ble-manager.ts`, device identification database
-  - **Impact**: 🔥 High - Users need to know what devices they're connecting to
+- [x] ✅ **OS Permission Request Button** - Add button to permission dialog that triggers native OS permission requests
+  - Completed: Added native permission request functionality in `src/api/permissions.ts`
+- [x] ✅ **Comprehensive BLE Device Identification** - Show manufacturer, model, device type instead of generic "BLE Device"
+  - Completed: Added comprehensive device identification with manufacturer database
 
 ---
 
 ## 📋 Phase 1: High Impact / Low Effort (Next 2-4 weeks)
 
 ### 🎯 Sensor Organization & Categorization
-- [ ] **Implement Sensor Type Categories** - Replace generic sensor list with Power/HR/Cadence/Speed slots
-  - **Libraries**: Use existing sensor classification in `ant-plus-next`
-  - **Files**: `public/dashboard.js`, `src/services/sensor-manager.ts`
-  - **UI**: Bootstrap card components with sensor type icons
-  - **Priority**: 🔥 High - Major UX improvement
+- [x] ✅ **Implement Sensor Type Categories** - Replace generic sensor list with Power/HR/Cadence/Speed slots
+  - Completed: Added organized sensor category cards with proper state management
+  - **Files**: `public/dashboard.js`, `public/index.html` - sensor category slots implemented
+  - **Tests**: Added comprehensive test coverage in `tests/ui/sensor-categories.test.ts`
 
 - [ ] **Add Contextual Data Hierarchy** - Group related metrics instead of flat list
   - **Libraries**: Chart.js grouped datasets, lodash for data grouping
@@ -204,11 +275,23 @@
 - 🟡 **Medium Priority**: Important features, quality improvements  
 - 🔵 **Low Priority**: Nice-to-have, future enhancements
 
-## 🎯 Immediate Next Actions (This Week)
-1. Fix session UI inconsistency (Pause/Export buttons)
-2. Begin sensor categorization implementation
-3. Research Chart.js real-time plugins for performance metrics
-4. Study ANT+ trainer control examples on GitHub
+## 🎯 Immediate Next Actions (This Week) - Electron App MVP Focus
+1. **CRITICAL**: Implement comprehensive error logging system (`output/logs/` structure)
+2. **CRITICAL**: Add graceful shutdown handling with crash reporting  
+3. **HIGH**: Implement sensor connection timeouts and reconnection logic
+4. **HIGH**: Add database connection pooling for reliability
+5. **MEDIUM**: Add Electron app packaging and auto-updater setup
+6. **FUTURE**: Security items (CORS, auth) deferred to cloud deployment phase
+
+### 📱 New Electron App Priorities  
+- [ ] **Electron App Setup** - Package as desktop application
+  - **Files**: Add `electron-builder` configuration, main process setup
+  - **Libraries**: `electron`, `electron-builder`, `electron-updater`
+  - **Impact**: 🔥 HIGH - Core delivery method for MVP
+
+- [ ] **Auto-Updater Integration** - Seamless app updates
+  - **Libraries**: `electron-updater`, GitHub releases integration
+  - **Impact**: 🟡 MEDIUM - User experience and maintenance
 
 ---
 

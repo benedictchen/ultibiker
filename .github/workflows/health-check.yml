@@ -1,0 +1,125 @@
+name: Health Check & Monitoring
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Every 6 hours
+  workflow_dispatch:
+
+jobs:
+  dependency-check:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Security audit
+        run: pnpm audit --audit-level moderate
+
+      - name: Check for outdated packages
+        run: pnpm outdated || echo "Some packages are outdated"
+
+      - name: Create issue if vulnerabilities found
+        uses: actions/github-script@v7
+        if: failure()
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Security vulnerabilities detected',
+              body: `Automated security scan found vulnerabilities in dependencies.
+              
+              Please run \`pnpm audit\` locally and update vulnerable packages.
+              
+              Triggered by: ${context.sha}
+              Workflow: ${context.workflow}`,
+              labels: ['security', 'automated']
+            })
+
+  build-health:
+    name: Build Health Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test build
+        run: |
+          pnpm --filter @ultibiker/core build
+          pnpm --filter @ultibiker/server build
+          pnpm --filter @ultibiker/web build
+
+      - name: Run smoke tests
+        run: pnpm run test:unit --run --reporter=verbose
+
+  code-quality-trends:
+    name: Code Quality Trends  
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate code metrics
+        run: |
+          echo "## Code Quality Metrics" > metrics.md
+          echo "**Generated**: $(date)" >> metrics.md
+          echo "" >> metrics.md
+          
+          echo "### Lines of Code" >> metrics.md
+          find packages -name "*.ts" -not -path "*/node_modules/*" -not -path "*/dist/*" | xargs wc -l | tail -1 >> metrics.md
+          echo "" >> metrics.md
+          
+          echo "### Test Coverage" >> metrics.md
+          pnpm run test:unit --coverage --reporter=verbose || echo "Coverage data would go here" >> metrics.md
+          
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-metrics
+          path: metrics.md
+          retention-days: 30
