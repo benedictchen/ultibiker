@@ -24,14 +24,11 @@ export function createDataRoutes(): Router {
         conditions.push(eq(sensorData.deviceId, deviceId));
       }
 
-      let query = db
+      const query = db
         .select()
         .from(sensorData)
+        .where(conditions.length > 0 ? (conditions.length === 1 ? conditions[0] : and(...conditions)) : undefined)
         .orderBy(desc(sensorData.timestamp));
-
-      if (conditions.length > 0) {
-        query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions));
-      }
 
       const data = await query.limit(parseInt(limit as string));
 

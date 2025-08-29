@@ -1,3 +1,10 @@
+// FIXME: Replace this custom logging system with production-grade libraries:
+// - winston: Structured logging with multiple transports (file, console, database)
+// - @sentry/node: Error tracking and performance monitoring
+// - pino: High-performance JSON logger (faster than winston)
+// - node-bunyan: JSON logging library with powerful features
+// Current implementation is basic and missing features like log rotation, structured queries, etc.
+
 import { writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';

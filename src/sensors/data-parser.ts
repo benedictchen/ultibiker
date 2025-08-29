@@ -1,3 +1,10 @@
+// FIXME: Consider data processing and validation libraries:
+// - joi or zod: Schema validation for sensor data (zod already in package.json - use it!)
+// - moment.js or date-fns: Better timestamp handling and timezone support
+// - lodash: Utility functions for data manipulation and transformation
+// - crypto: Built-in Node.js crypto for SHA-256 fingerprinting (multi-device deduplication)
+// - fast-json-stringify: Faster JSON serialization for high-frequency sensor data
+
 import { SensorReading, SensorType } from '../types/sensor.js';
 import { createId } from '@paralleldrive/cuid2';
 

@@ -1,10 +1,16 @@
+// FIXME: Consider enhanced event handling and state management libraries:
+// - eventemitter3: Faster and feature-rich EventEmitter alternative
+// - rxjs: Reactive programming for complex data streams and sensor events
+// - p-queue: Priority queue for managing concurrent sensor operations
+// - bottleneck: Rate limiting for sensor requests to prevent overwhelming devices
+
 import { EventEmitter } from 'events';
 import { SensorManager, SensorDevice, SensorReading, ConnectionStatus, SensorEvent } from '../types/sensor.js';
 import { ANTManager } from './ant-manager.js';
 import { BLEManager } from './ble-manager.js';
 import { DataParser } from './data-parser.js';
 import { PermissionManager } from '../services/permission-manager.js';
-import { crashLogger } from '../services/crash-logger.js';
+import { logger } from '../utils/logger.js';
 
 export class UltiBikerSensorManager extends EventEmitter implements SensorManager {
   private antManager: ANTManager;
@@ -264,7 +270,7 @@ export class UltiBikerSensorManager extends EventEmitter implements SensorManage
     console.log(`🔍 Discovered: ${device.name} (${device.type}) via ${device.protocol}`);
 
     // Log device discovery
-    crashLogger.logSensor({
+    logger.sensor('Device discovered', {
       deviceId: device.deviceId,
       sensorType: device.type,
       event: 'device_discovered',
@@ -288,7 +294,7 @@ export class UltiBikerSensorManager extends EventEmitter implements SensorManage
     console.log(`🔗 Connected: ${device.name}`);
 
     // Log device connection
-    crashLogger.logSensor({
+    logger.sensor('Device connected', {
       deviceId: device.deviceId,
       sensorType: device.type,
       event: 'device_connected',

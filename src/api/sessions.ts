@@ -1,27 +1,41 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../database/db.js';
 import { sessions, sensorData } from '../database/schema.js';
-import { eq, desc, and, gte, lte } from 'drizzle-orm';
+import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
+import { 
+  CreateSessionSchema, 
+  UpdateSessionSchema, 
+  SessionQuerySchema,
+  IdSchema
+} from '../schemas/validation.js';
+import { validateRequest, ValidatedRequest } from '../middleware/validation.js';
+import { logger } from '../utils/logger.js';
+import { z } from 'zod';
 
 export function createSessionRoutes(): Router {
   const router = Router();
 
   // Get all sessions
   router.get('/', async (req: Request, res: Response) => {
+    const requestLogger = logger;
+    requestLogger.api('GET /api/sessions', { userAgent: req.get('User-Agent') });
     try {
+      const timer = requestLogger.startTimer('get_all_sessions');
       const allSessions = await db
         .select()
         .from(sessions)
         .orderBy(desc(sessions.startTime));
+      timer.end();
 
+      requestLogger.api('Successfully retrieved sessions', { count: allSessions.length });
       res.json({
         success: true,
         data: allSessions,
         count: allSessions.length
       });
     } catch (error) {
-      console.error('Error getting sessions:', error);
+      requestLogger.error('Error getting sessions', error as Error);
       res.status(500).json({
         success: false,
         error: 'Failed to get sessions'
@@ -30,27 +44,34 @@ export function createSessionRoutes(): Router {
   });
 
   // Create a new session
-  router.post('/', async (req: Request, res: Response) => {
+  router.post('/', 
+    validateRequest({ body: CreateSessionSchema }),
+    async (req: ValidatedRequest<any, any, z.infer<typeof CreateSessionSchema>>, res: Response) => {
+      const requestLogger = logger;
+      requestLogger.api('POST /api/sessions', { body: req.body });
     try {
       const { name, notes } = req.body;
       
       const newSession = {
         id: createId(),
-        name: name || 'New Ride Session',
-        notes: notes || null,
+        name,
+        notes,
         startTime: new Date(),
         status: 'active' as const
       };
 
+      const timer = requestLogger.startTimer('create_session');
       await db.insert(sessions).values(newSession);
+      timer.end();
 
+      requestLogger.session('Session created', { sessionId: newSession.id, name });
       res.status(201).json({
         success: true,
         data: newSession,
         message: 'Session created successfully'
       });
     } catch (error) {
-      console.error('Error creating session:', error);
+      requestLogger.error('Error creating session', error as Error);
       res.status(500).json({
         success: false,
         error: 'Failed to create session'
@@ -59,29 +80,37 @@ export function createSessionRoutes(): Router {
   });
 
   // Get specific session
-  router.get('/:sessionId', async (req: Request, res: Response) => {
+  router.get('/:sessionId',
+    validateRequest({ params: z.object({ sessionId: IdSchema }) }),
+    async (req: ValidatedRequest<{ sessionId: string }>, res: Response) => {
+      const requestLogger = logger;
+      requestLogger.api('GET /api/sessions/:sessionId', { sessionId: req.params.sessionId });
     try {
       const { sessionId } = req.params;
       
+      const timer = requestLogger.startTimer('get_session');
       const session = await db
         .select()
         .from(sessions)
         .where(eq(sessions.id, sessionId))
         .limit(1);
+      timer.end();
 
       if (session.length === 0) {
+        requestLogger.warn('Session not found', { sessionId });
         return res.status(404).json({
           success: false,
           error: 'Session not found'
         });
       }
 
+      requestLogger.api('Session retrieved successfully', { sessionId });
       res.json({
         success: true,
         data: session[0]
       });
     } catch (error) {
-      console.error('Error getting session:', error);
+      requestLogger.error('Error getting session', error as Error, { sessionId: req.params.sessionId });
       res.status(500).json({
         success: false,
         error: 'Failed to get session'
@@ -90,7 +119,14 @@ export function createSessionRoutes(): Router {
   });
 
   // Update session
-  router.patch('/:sessionId', async (req: Request, res: Response) => {
+  router.patch('/:sessionId',
+    validateRequest({ 
+      params: z.object({ sessionId: IdSchema }),
+      body: UpdateSessionSchema 
+    }),
+    async (req: ValidatedRequest<{ sessionId: string }, any, z.infer<typeof UpdateSessionSchema>>, res: Response) => {
+      const requestLogger = logger;
+      requestLogger.api('PATCH /api/sessions/:sessionId', { sessionId: req.params.sessionId, updates: req.body });
     try {
       const { sessionId } = req.params;
       const { name, status, notes, endTime } = req.body;
@@ -173,7 +209,14 @@ export function createSessionRoutes(): Router {
   });
 
   // Get session sensor data
-  router.get('/:sessionId/data', async (req: Request, res: Response) => {
+  router.get('/:sessionId/data',
+    validateRequest({ 
+      params: z.object({ sessionId: IdSchema }),
+      query: SessionQuerySchema 
+    }),
+    async (req: any, res: Response) => {
+      const requestLogger = logger;
+      requestLogger.api('GET /api/sessions/:sessionId/data', { sessionId: req.params.sessionId, query: req.query });
     try {
       const { sessionId } = req.params;
       const { 

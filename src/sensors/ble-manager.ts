@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { SensorDevice, SensorType } from '../types/sensor.js';
+// DeviceIdentifier not implemented yet - using simplified identification
 // Dynamic import for noble to handle CommonJS module
 let noble: any = null;
 
@@ -250,31 +251,26 @@ export class BLEManager extends EventEmitter {
   }
   
   private setupNobleEventHandlers(): void {
-    noble.on('discover', (peripheral) => {
+    noble.on('discover', (peripheral: import('noble').Peripheral) => {
       this.handleDeviceDiscovery(peripheral);
     });
   }
   
-  private handleDeviceDiscovery(peripheral: any): void {
-    const { advertisement, localName, id, rssi } = peripheral;
+  private handleDeviceDiscovery(peripheral: import('noble').Peripheral): void {
+    const { advertisement, rssi } = peripheral;
+    const localName = peripheral.advertisement.localName;
+    const id = peripheral.id;
     const serviceUuids = advertisement.serviceUuids || [];
     
     console.log(`🔍 BLE device found: ${localName || 'Unknown'} (${id}) RSSI: ${rssi}dBm Services: [${serviceUuids.join(', ')}]`);
     
-    // Check if this is a cycling sensor, but be more permissive
-    const deviceType = this.identifyDeviceType(serviceUuids);
+    // Basic device identification (simplified for now)
+    const deviceType = this.identifyDeviceType(serviceUuids) || this.identifyDeviceTypeByName(localName || '');
     
-    // If we can't identify by services, try by device name
-    const nameBasedType = !deviceType ? this.identifyDeviceTypeByName(localName) : null;
-    const finalDeviceType = deviceType || nameBasedType;
-    
-    if (!finalDeviceType) {
-      // For broader scan phase, show all devices but mark as unknown
-      if (serviceUuids.length === 0 && !localName?.toLowerCase().includes('sensor')) {
-        console.log(`⚠️ Ignoring device ${localName || id} - likely not a sensor device`);
-        return;
-      }
-      console.log(`❓ Found potential device ${localName || id} - adding as unknown type`);
+    // Filter out devices that aren't cycling-related
+    if (!deviceType && !this.isPotentialCyclingDevice(localName || '', serviceUuids)) {
+      console.log(`⚠️ Ignoring device ${localName || 'Unknown'} - not cycling-related`);
+      return;
     }
     
     // Store the peripheral for later connection
@@ -283,14 +279,32 @@ export class BLEManager extends EventEmitter {
     const device: SensorDevice = {
       deviceId: id,
       name: localName || `BLE Device ${id.slice(-4)}`,
-      type: finalDeviceType || 'heart_rate', // Default to heart rate if unknown
+      type: deviceType || 'heart_rate',
       protocol: 'bluetooth',
       isConnected: false,
-      signalStrength: this.calculateSignalStrength(rssi)
+      signalStrength: this.calculateSignalStrength(rssi),
+      manufacturer: 'Unknown'
     };
     
-    console.log(`✅ Discovered ${finalDeviceType ? 'cycling sensor' : 'unknown device'}: ${device.name} (${device.type}) Signal: ${device.signalStrength}%`);
+    console.log(`✅ Discovered: ${device.name} | ${device.manufacturer || 'Unknown'} | Type: ${device.type} | Signal: ${device.signalStrength}%`);
     this.emit('device-discovered', device);
+  }
+
+  private isPotentialCyclingDevice(deviceName: string, serviceUuids: string[]): boolean {
+    // Check if device has cycling-related indicators
+    const cyclingIndicators = [
+      'heart', 'hr', 'power', 'cadence', 'speed', 'trainer', 'cycling',
+      'polar', 'wahoo', 'garmin', 'stages', 'quarq', 'kickr', 'tacx'
+    ];
+    
+    const name = deviceName.toLowerCase();
+    const hasNameIndicator = cyclingIndicators.some(indicator => name.includes(indicator));
+    
+    const hasCyclingService = serviceUuids.some(service => 
+      ['180d', '1818', '1816', '1826'].includes(service.replace(/-/g, '').substring(4, 8))
+    );
+    
+    return hasNameIndicator || hasCyclingService;
   }
   
   private identifyDeviceType(serviceUuids: string[]): SensorType | null {

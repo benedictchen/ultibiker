@@ -1,11 +1,14 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
-import cors from 'cors';
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import morgan from 'morgan';
+
+// Production-ready middleware and utilities  
+import { setupSecurityMiddleware, apiSecurityHeaders, securityLogger, sanitizeInput, securityErrorHandler } from './middleware/security.js';
+import { logger, morganStream } from './utils/logger.js';
+import { env } from './config/env.js';
 
 import { initializeDatabase, closeDatabase } from './database/db.js';
 import { UltiBikerSensorManager } from './sensors/sensor-manager.js';
@@ -16,7 +19,8 @@ import { createDeviceRoutes } from './api/devices.js';
 import { createSessionRoutes } from './api/sessions.js';
 import { createDataRoutes } from './api/data.js';
 import { createPermissionRoutes } from './api/permissions.js';
-import { crashLogger } from './services/crash-logger.js';
+// Legacy logger - replaced by Winston/Sentry logging
+// import { appLogger, crashLogger } from './services/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,12 +34,11 @@ class UltiBikerServer {
   private port: number;
 
   constructor() {
-    this.port = parseInt(process.env.PORT || '3000');
+    this.port = env.PORT;
     this.app = express();
     this.server = createServer(this.app);
 
-    // Initialize crash detection system first
-    crashLogger.initialize();
+    logger.info('🚀 UltiBiker server initializing', { port: this.port });
 
     this.sessionManager = new SessionManager();
     this.sensorManager = new UltiBikerSensorManager(this.sessionManager);
@@ -47,82 +50,69 @@ class UltiBikerServer {
   }
 
   private setupMiddleware(): void {
-    // Security middleware
-    this.app.use(helmet({
-      contentSecurityPolicy: false // Allow inline scripts for development
+    // Production-ready security middleware stack
+    setupSecurityMiddleware(this.app, {
+      cors: {
+        origin: process.env.CORS_ORIGIN?.split(',') || [
+          'http://localhost:3000',
+          'http://localhost:3001'
+        ],
+        credentials: true
+      },
+      rateLimit: {
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: parseInt(process.env.RATE_LIMIT_MAX || '100')
+      },
+      compression: true,
+      helmet: true
+    });
+
+    // HTTP request logging with Morgan + Winston
+    this.app.use(morgan('combined', { 
+      stream: morganStream,
+      skip: (req) => {
+        // Skip logging health checks in production
+        return process.env.NODE_ENV === 'production' && req.path === '/health';
+      }
     }));
 
-    // CORS middleware
-    this.app.use(cors());
-
-    // Rate limiting
-    const limiter = rateLimit({
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 100, // Limit each IP to 100 requests per windowMs
-      message: 'Too many requests from this IP'
-    });
-    this.app.use('/api/', limiter);
+    // Security monitoring and input sanitization
+    this.app.use(securityLogger);
+    this.app.use(sanitizeInput);
 
     // Body parsing middleware
-    this.app.use(express.json());
-    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+    // API security headers
+    this.app.use('/api', apiSecurityHeaders);
 
     // Serve static files (web UI)
-    this.app.use(express.static(path.join(__dirname, '../public')));
+    this.app.use(express.static(path.join(__dirname, '../public'), {
+      maxAge: process.env.NODE_ENV === 'production' ? '1d' : '0'
+    }));
 
-    // Request logging with crash logging integration
-    this.app.use((req, res, next) => {
-      console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
-      
-      // Log performance metrics for slow requests
-      const startTime = Date.now();
-      res.on('finish', () => {
-        const duration = Date.now() - startTime;
-        if (duration > 5000) { // Log requests slower than 5 seconds
-          crashLogger.logPerformance({
-            type: 'slow_request',
-            method: req.method,
-            path: req.path,
-            duration,
-            statusCode: res.statusCode,
-            userAgent: req.get('user-agent')
-          });
-        }
-      });
-      
-      next();
-    });
-
-    // Add crash detection error middleware (must be last)
-    this.app.use(crashLogger.errorMiddleware());
+    // Security error handling (must be last)
+    this.app.use(securityErrorHandler);
   }
 
   private setupRoutes(): void {
-    // Health check with crash statistics
+    // Health check endpoint
     this.app.get('/health', (req, res) => {
-      res.json({ 
-        status: 'healthy', 
+      const healthData = {
+        status: 'healthy',
         timestamp: new Date().toISOString(),
-        version: '0.1.0',
-        crashStats: crashLogger.getCrashStats()
-      });
-    });
-
-    // Crash logs API endpoint
-    this.app.get('/api/logs/stats', (req, res) => {
-      try {
-        const stats = crashLogger.getCrashStats();
-        res.json(stats);
-      } catch (error) {
-        crashLogger.logError({
-          type: 'error',
-          severity: 'medium',
-          message: 'Failed to retrieve crash statistics',
-          stack: error instanceof Error ? error.stack : undefined,
-          context: { endpoint: '/api/logs/stats' }
-        });
-        res.status(500).json({ error: 'Failed to retrieve crash statistics' });
-      }
+        version: process.env.npm_package_version || '0.1.0',
+        environment: process.env.NODE_ENV || 'development',
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        sensors: {
+          active: this.sensorManager.getConnectedDevices().length
+        }
+      };
+      
+      logger.health('Health check requested', healthData);
+      res.json(healthData);
     });
 
     // API routes
@@ -152,7 +142,10 @@ class UltiBikerServer {
           // Auto-start session if none is active
           let activeSession = await this.sessionManager.getActiveSession();
           if (!activeSession) {
-            console.log('🚴 Auto-starting session for incoming sensor data');
+            logger.session('Auto-starting session for incoming sensor data', {
+              sensorType: sensorData.metricType,
+              deviceId: sensorData.deviceId
+            });
             const sessionId = await this.sessionManager.startSession('Auto-started Session');
             activeSession = await this.sessionManager.getSessionData(sessionId);
           }
@@ -163,52 +156,78 @@ class UltiBikerServer {
             
             // Store the sensor reading
             await this.sessionManager.addSensorReading(sensorData);
+            
+            // Log sensor data for monitoring
+            logger.sensor('Sensor reading processed', {
+              sessionId: activeSession.id,
+              type: sensorData.metricType,
+              value: sensorData.value,
+              deviceId: sensorData.deviceId
+            });
           }
         } catch (error) {
-          console.error('❌ Failed to process sensor data:', error);
+          logger.error('Failed to process sensor data', error as Error, {
+            sensorData: {
+              type: sensorData.metricType,
+              deviceId: sensorData.deviceId,
+              value: sensorData.value
+            }
+          });
         }
       }
     });
 
-    console.log('🔗 Sensor data integration configured');
+    logger.info('🔗 Sensor data integration configured');
   }
 
   async start(): Promise<void> {
     try {
       // Initialize database
-      console.log('🗃️  Initializing database...');
+      logger.info('🗃️  Initializing database...');
       await initializeDatabase();
 
       // Start the server
       this.server.listen(this.port, () => {
-        console.log(`
+        const startupMessage = `
 🚴 ════════════════════════════════════════════════════════════════
-   UltiBiker MVP Server Started Successfully!
+   UltiBiker Server Started Successfully!
    
    📡 Server URL: http://localhost:${this.port}
    🌐 Web Dashboard: http://localhost:${this.port}
    📊 API Endpoints: http://localhost:${this.port}/api
    🔌 WebSocket: ws://localhost:${this.port}
    
+   Environment: ${process.env.NODE_ENV || 'development'}
+   Logging: ${process.env.LOG_LEVEL || 'debug'}
+   Security: Production middleware enabled
+   
    Ready to aggregate sensor data! 🚀
-════════════════════════════════════════════════════════════════
-        `);
+════════════════════════════════════════════════════════════════`;
+        
+        console.log(startupMessage);
+        logger.info('🚴 UltiBiker server started successfully', {
+          port: this.port,
+          environment: process.env.NODE_ENV || 'development',
+          version: process.env.npm_package_version || '0.1.0'
+        });
       });
 
     } catch (error) {
-      console.error('❌ Failed to start server:', error);
+      logger.error('❌ Failed to start server', error as Error);
       process.exit(1);
     }
   }
 
   async shutdown(): Promise<void> {
-    console.log('🔄 Shutting down UltiBiker server...');
+    logger.info('🔄 Shutting down UltiBiker server...');
     
     try {
       // End any active session
       const activeSession = await this.sessionManager.getActiveSession();
       if (activeSession) {
-        console.log('🏁 Ending active session before shutdown...');
+        logger.session('🏁 Ending active session before shutdown', {
+          sessionId: activeSession.id
+        });
         await this.sessionManager.endSession(activeSession.id);
       }
 
@@ -222,12 +241,14 @@ class UltiBikerServer {
       closeDatabase();
       
       // Close server
-      this.server.close(() => {
-        console.log('✅ Server shutdown complete');
+      this.server.close(async () => {
+        logger.info('✅ Server shutdown complete');
+        await logger.shutdown();
         process.exit(0);
       });
     } catch (error) {
-      console.error('❌ Error during shutdown:', error);
+      logger.error('❌ Error during shutdown', error as Error);
+      await logger.shutdown();
       process.exit(1);
     }
   }
@@ -241,7 +262,8 @@ process.on('SIGTERM', () => server.shutdown());
 process.on('SIGINT', () => server.shutdown());
 
 // Start the server
-server.start().catch((error) => {
-  console.error('❌ Failed to start UltiBiker server:', error);
+server.start().catch(async (error) => {
+  logger.error('❌ Failed to start UltiBiker server', error as Error);
+  await logger.shutdown();
   process.exit(1);
 });

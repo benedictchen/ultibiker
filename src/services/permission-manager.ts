@@ -88,7 +88,7 @@ export class PermissionManager extends EventEmitter {
       // Check if Bluetooth is enabled at system level
       const { stdout: bluetoothPower } = await execAsync('system_profiler SPBluetoothDataType');
       
-      if (!bluetoothPower.includes('Bluetooth Power: On')) {
+      if (!bluetoothPower.includes('State: On')) {
         return {
           granted: false,
           denied: false,
@@ -101,63 +101,20 @@ export class PermissionManager extends EventEmitter {
         };
       }
 
-      // Use node-mac-permissions if available
-      if (macPermissions) {
-        try {
-          const bluetoothStatus = macPermissions.getAuthorizationStatus('bluetooth');
-          console.log(`📶 Bluetooth permission status (via node-mac-permissions): ${bluetoothStatus}`);
-          
-          switch (bluetoothStatus) {
-            case 'authorized':
-              return {
-                granted: true,
-                denied: false,
-                requiresUserAction: false,
-                message: 'Bluetooth permission granted'
-              };
-            case 'denied':
-              return {
-                granted: false,
-                denied: true,
-                requiresUserAction: true,
-                message: 'Bluetooth permission denied',
-                instructions: [
-                  'Go to System Preferences > Privacy & Security > Bluetooth',
-                  'Enable Bluetooth access for this application',
-                  'Restart the app after changing permissions'
-                ]
-              };
-            case 'not determined':
-              return {
-                granted: false,
-                denied: false,
-                requiresUserAction: true,
-                message: 'Bluetooth permission not yet requested',
-                instructions: [
-                  'App will request Bluetooth permission when first scanning for devices',
-                  'Click "Allow" when the system prompt appears',
-                  'If no prompt appears, manually enable in System Preferences > Privacy & Security > Bluetooth'
-                ]
-              };
-            case 'restricted':
-              return {
-                granted: false,
-                denied: true,
-                requiresUserAction: true,
-                message: 'Bluetooth access is restricted by system policy',
-                instructions: [
-                  'Contact your system administrator',
-                  'Check if parental controls or enterprise policies are blocking Bluetooth access'
-                ]
-              };
-            default:
-              console.log(`⚠️ Unknown Bluetooth permission status: ${bluetoothStatus}`);
-              break;
-          }
-        } catch (macPermError) {
-          console.log('⚠️ Failed to check permissions with node-mac-permissions:', macPermError.message);
-        }
-      }
+      // On macOS, Noble (BLE library) works directly with the Bluetooth stack
+      // No explicit app-level permissions needed for BLE scanning
+      console.log('📶 Bluetooth is enabled - Noble can access BLE devices directly');
+      
+      return {
+        granted: true,
+        denied: false,
+        requiresUserAction: false,
+        message: 'Bluetooth is enabled and ready for BLE sensor scanning',
+        instructions: [
+          'BLE scanning works directly through Noble library on macOS',
+          'No additional system permissions required for BLE device access'
+        ]
+      };
 
       // Fallback to TCC database check
       try {
@@ -501,6 +458,47 @@ export class PermissionManager extends EventEmitter {
         message: 'Could not check Windows USB status'
       };
     }
+  }
+
+  async requestNativeBluetoothPermission(): Promise<PermissionStatus> {
+    console.log('🔒 Requesting native OS Bluetooth permission...');
+    
+    if (process.platform === 'darwin' && macPermissions) {
+      try {
+        // Use node-mac-permissions to trigger native macOS dialog
+        const granted = await macPermissions.askForBluetoothAccess();
+        console.log(`📶 Native Bluetooth permission result: ${granted}`);
+        
+        return {
+          granted,
+          denied: !granted,
+          requiresUserAction: false,
+          message: granted ? 'Bluetooth permission granted' : 'Bluetooth permission denied by user',
+          instructions: granted ? [] : [
+            'Go to System Preferences > Privacy & Security > Bluetooth',
+            'Enable Bluetooth access for this application',
+            'Restart UltiBiker after changing permissions'
+          ]
+        };
+      } catch (error) {
+        console.error('❌ Native permission request failed:', error);
+        return {
+          granted: false,
+          denied: false,
+          requiresUserAction: true,
+          message: 'Failed to request Bluetooth permission',
+          instructions: [
+            'Please manually enable Bluetooth permissions:',
+            '1. Open System Preferences > Privacy & Security > Bluetooth',
+            '2. Add or enable this application',
+            '3. Restart UltiBiker'
+          ]
+        };
+      }
+    }
+    
+    // Fallback for non-macOS platforms
+    return this.requestBluetoothPermission();
   }
 
   async requestBluetoothPermission(): Promise<PermissionStatus> {

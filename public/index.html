@@ -9,6 +9,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome for icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Toastify.js for notifications -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <!-- date-fns for date/time handling -->
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@4.1.0/index.min.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Socket.IO Client -->
@@ -434,122 +439,8 @@
             color: #374151;
         }
 
-        /* Toast Notifications */
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .toast {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            padding: 1rem;
-            max-width: 350px;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            transform: translateX(100%);
-            transition: all 0.3s ease;
-            border-left: 4px solid #e5e7eb;
-        }
-
-        .toast.show {
-            transform: translateX(0);
-        }
-
-        .toast.success {
-            border-left-color: #10b981;
-        }
-
-        .toast.error {
-            border-left-color: #ef4444;
-        }
-
-        .toast.warning {
-            border-left-color: #f59e0b;
-        }
-
-        .toast.info {
-            border-left-color: #3b82f6;
-        }
-
-        .toast-icon {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .toast.success .toast-icon {
-            background: #dcfce7;
-            color: #16a34a;
-        }
-
-        .toast.error .toast-icon {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-
-        .toast.warning .toast-icon {
-            background: #fef3c7;
-            color: #d97706;
-        }
-
-        .toast.info .toast-icon {
-            background: #dbeafe;
-            color: #2563eb;
-        }
-
-        .toast-content {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .toast-message {
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: #1f2937;
-            margin: 0 0 0.25rem 0;
-        }
-
-        .toast-description {
-            font-size: 0.8rem;
-            color: #6b7280;
-            margin: 0;
-        }
-
-        .toast-close {
-            background: none;
-            border: none;
-            color: #9ca3af;
-            cursor: pointer;
-            padding: 0;
-            font-size: 1.2rem;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.2s ease;
-            flex-shrink: 0;
-        }
-
-        .toast-close:hover {
-            background: #f3f4f6;
-            color: #6b7280;
-        }
+        /* Toast notifications now handled by Toastify.js library */
+        /* Custom toast styles removed - using Toastify.js default styling with customizations */
         
         /* Responsive Layout Classes */
         .layout-compact .metric-card {
@@ -571,6 +462,41 @@
         
         .layout-expanded .sensor-icon {
             font-size: 2.5rem;
+        }
+        
+        /* Enhanced Device Display Styles */
+        .sensor-live-data {
+            background: rgba(25, 135, 84, 0.1);
+            border: 1px solid rgba(25, 135, 84, 0.3);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .sensor-live-data.text-muted {
+            background: rgba(108, 117, 125, 0.1);
+            border-color: rgba(108, 117, 125, 0.3);
+        }
+        
+        .sensor-data-display {
+            min-width: 80px;
+            text-align: right;
+        }
+        
+        .device-list-item .badge {
+            font-size: 0.7em;
+        }
+        
+        .device-list-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .device-list-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
     </style>
 </head>
@@ -709,6 +635,9 @@
                                     <div class="d-flex gap-2 flex-wrap">
                                         <button type="button" class="btn btn-warning btn-sm" id="checkPermissionsBtn">
                                             <i class="fas fa-sync-alt me-1"></i>Check Permissions
+                                        </button>
+                                        <button type="button" class="btn btn-success btn-sm" id="requestBluetoothBtn">
+                                            <i class="fas fa-shield-alt me-1"></i>Grant Permission
                                         </button>
                                         <button type="button" class="btn btn-outline-warning btn-sm" id="showPermissionGuideBtn">
                                             <i class="fas fa-book me-1"></i>Setup Guide
@@ -898,11 +827,11 @@
                                     <div id="recordingStatus" class="fw-bold text-warning">Waiting for Session</div>
                                 </div>
                                 
-                                <div class="d-flex gap-2">
-                                    <button class="btn btn-sm btn-outline-warning">
+                                <div class="d-flex gap-2" id="sessionControls" style="display: none;">
+                                    <button id="pauseSessionBtn" class="btn btn-sm btn-outline-warning">
                                         <i class="fas fa-pause"></i> Pause
                                     </button>
-                                    <button class="btn btn-sm btn-outline-primary">
+                                    <button id="exportSessionBtn" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-download"></i> Export
                                     </button>
                                 </div>
@@ -976,8 +905,7 @@
         </div>
     </div>
 
-    <!-- Toast Container -->
-    <div id="toastContainer" class="toast-container"></div>
+    <!-- Toast notifications now handled by Toastify.js -->
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

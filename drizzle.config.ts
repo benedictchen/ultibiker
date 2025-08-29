@@ -6,7 +6,7 @@ export default defineConfig({
   dialect: 'sqlite',
   driver: 'better-sqlite',
   dbCredentials: {
-    url: './ultibiker.db'
+    url: './data/ultibiker.db'
   },
   verbose: true,
   strict: true

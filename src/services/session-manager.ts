@@ -22,6 +22,7 @@ export class SessionManager {
       crashLogger.logSession({
         sessionId: session[0].id,
         event: 'session_started',
+        timestamp: new Date().toISOString(),
         data: {
           name: session[0].name,
           startTime: session[0].startTime
@@ -56,7 +57,7 @@ export class SessionManager {
 
       const updates = {
         endTime,
-        duration: Math.floor((endTime.getTime() - sessionData.startTime.getTime()) / 1000),
+        duration: sessionData.startTime ? Math.floor((endTime.getTime() - sessionData.startTime.getTime()) / 1000) : 0,
         status: 'completed' as const,
         ...await this.calculateSessionMetrics(sessionId)
       };

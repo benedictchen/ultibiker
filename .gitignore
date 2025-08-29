@@ -80,10 +80,10 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# SQLite database files
-*.db
-*.db-wal
-*.db-shm
+# SQLite database files (moved to data/)
+data/*.db
+data/*.db-wal
+data/*.db-shm
 
 # OS generated files
 .DS_Store
@@ -101,9 +101,9 @@ Thumbs.db
 *.swo
 *~
 
-# Test results
-test-results/
-playwright-report/
+# Test results and reports (moved to reports/)
+reports/test-results/
+reports/playwright-report/
 
 # Application logs - Keep structure but ignore log files
 logs/**/*.json

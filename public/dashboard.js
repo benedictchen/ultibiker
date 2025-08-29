@@ -194,61 +194,54 @@ class ErrorHandler {
     }
 
     showToast(message, type = 'info', description = null, duration = 5000) {
-        const container = document.getElementById('toastContainer');
-        if (!container) return;
-
-        const toastId = `toast-${++this.toastId}`;
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.id = toastId;
-
+        // Use Toastify.js for better toast notifications
         const iconMap = {
-            success: 'fas fa-check',
-            error: 'fas fa-exclamation-triangle',
-            warning: 'fas fa-exclamation-circle',
-            info: 'fas fa-info-circle'
+            success: '✅',
+            error: '❌',
+            warning: '⚠️',
+            info: 'ℹ️'
         };
 
-        toast.innerHTML = `
-            <div class="toast-icon">
-                <i class="${iconMap[type] || iconMap.info}"></i>
-            </div>
-            <div class="toast-content">
-                <div class="toast-message">${message}</div>
-                ${description ? `<div class="toast-description">${description}</div>` : ''}
-            </div>
-            <button class="toast-close" onclick="errorHandler.removeToast('${toastId}')">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
+        const colorMap = {
+            success: 'linear-gradient(to right, #00b09b, #96c93d)',
+            error: 'linear-gradient(to right, #ff5f6d, #ffc371)',
+            warning: 'linear-gradient(to right, #f093fb 0%, #f5576c 100%)',
+            info: 'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)'
+        };
 
-        container.appendChild(toast);
-
-        // Show with animation
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 100);
-
-        // Auto-remove after duration
-        if (duration > 0) {
-            setTimeout(() => {
-                this.removeToast(toastId);
-            }, duration);
+        // Format message with icon and description
+        let displayText = `${iconMap[type]} ${message}`;
+        if (description) {
+            displayText += `\n${description}`;
         }
 
-        return toastId;
+        Toastify({
+            text: displayText,
+            duration: duration,
+            close: true,
+            gravity: "top",
+            position: "right",
+            stopOnFocus: true,
+            style: {
+                background: colorMap[type] || colorMap.info,
+                borderRadius: "8px",
+                fontSize: "14px",
+                fontWeight: "500",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+            },
+            onClick: function() {
+                // Optional click handler
+            }
+        }).showToast();
+
+        // Keep the toastId for compatibility
+        return `toastify-${++this.toastId}`;
     }
 
     removeToast(toastId) {
-        const toast = document.getElementById(toastId);
-        if (toast) {
-            toast.classList.remove('show');
-            setTimeout(() => {
-                if (toast.parentNode) {
-                    toast.parentNode.removeChild(toast);
-                }
-            }, 300);
-        }
+        // Toastify.js handles removal automatically
+        // This method kept for backwards compatibility
+        console.log(`Toast removal handled by Toastify.js: ${toastId}`);
     }
 
     // Convenience methods
@@ -309,6 +302,16 @@ class ErrorHandler {
 // Initialize global error handler
 const errorHandler = new ErrorHandler();
 
+// FIXME: Consider modern frontend libraries for better performance and maintainability:
+// - React/Vue/Svelte: Component-based architecture instead of vanilla JS
+// - Socket.io-client: Already used, but consider upgrading to latest version
+// - Chart.js alternatives: ApexCharts, D3.js, or Recharts for React
+// - Tailwind CSS: Utility-first CSS framework instead of Bootstrap
+// - Alpine.js: Lightweight reactive framework as minimal upgrade path
+// - TypeScript: Type safety for frontend code
+// - Vite: Modern build tool for faster development
+// - PWA libraries: Workbox for offline support and caching
+
 class UltiBikerDashboard {
     constructor() {
         this.socket = io();
@@ -333,6 +336,15 @@ class UltiBikerDashboard {
         this.currentTab = 'devices';
         this.rawDataBuffer = [];
         this.maxRawDataLines = 50;
+        
+        // Device Connection tab auto-scanning
+        this.autoScanEnabled = false;
+        this.autoScanInterval = null;
+        this.autoPermissionCheckInterval = null;
+        this.lastUserActivity = Date.now();
+        this.idleThreshold = 60000; // 1 minute idle time
+        this.normalScanRate = 5000; // 5 seconds normal
+        this.idleScanRate = 15000; // 15 seconds when idle
         
         // Session management
         this.currentSessionId = null;
@@ -363,8 +375,14 @@ class UltiBikerDashboard {
         this.startDataRateCalculation();
         this.startLiveTimeUpdate();
         
+        // Initialize session UI in the correct state (no active session)
+        this.updateSessionUI(false);
+        
         // Set up permission UI handlers
         this.setupPermissionHandlers();
+        
+        // Set up user activity tracking for idle detection
+        this.setupUserActivityTracking();
         
         // Check permissions after initialization (both browser and server)
         setTimeout(() => {
@@ -374,6 +392,11 @@ class UltiBikerDashboard {
 
         // Start periodic permission status updates
         this.startPermissionStatusUpdates();
+        
+        // Start auto-scanning if we're on the devices tab
+        if (this.currentTab === 'devices') {
+            this.startAutoScanning();
+        }
         
         console.log('🚴 UltiBiker Dashboard initialized');
         console.log(`📐 Screen: ${this.screenWidth}x${this.screenHeight}, Layout: ${this.layoutMode}`);
@@ -549,6 +572,22 @@ class UltiBikerDashboard {
                 this.stopSession();
             });
         }
+
+        // Pause and Export buttons
+        const pauseSessionBtn = document.getElementById('pauseSessionBtn');
+        const exportSessionBtn = document.getElementById('exportSessionBtn');
+        
+        if (pauseSessionBtn) {
+            pauseSessionBtn.addEventListener('click', () => {
+                this.togglePauseSession();
+            });
+        }
+        
+        if (exportSessionBtn) {
+            exportSessionBtn.addEventListener('click', () => {
+                this.exportSessionData();
+            });
+        }
     }
     
     setupTabSystem() {
@@ -558,22 +597,33 @@ class UltiBikerDashboard {
         tabButtons.forEach(button => {
             button.addEventListener('shown.bs.tab', (e) => {
                 const targetTab = e.target.getAttribute('data-bs-target');
+                const previousTab = this.currentTab;
                 this.currentTab = targetTab.includes('devices') ? 'devices' : 'data';
                 
-                // Initialize chart when switching to data tab
-                if (this.currentTab === 'data' && !this.chart) {
-                    // Small delay to ensure tab content is visible
-                    setTimeout(() => {
-                        this.initializeChart();
-                    }, 100);
-                } else if (this.currentTab === 'data' && this.chart) {
-                    // Resize chart when switching back to data tab
-                    setTimeout(() => {
-                        this.resizeChart();
-                    }, 100);
+                // Handle tab-specific logic
+                if (this.currentTab === 'devices') {
+                    // Start auto-scanning when switching to devices tab
+                    this.startAutoScanning();
+                    
+                    // Initialize chart when switching to data tab
+                } else if (this.currentTab === 'data') {
+                    // Stop auto-scanning when leaving devices tab
+                    this.stopAutoScanning();
+                    
+                    if (!this.chart) {
+                        // Small delay to ensure tab content is visible
+                        setTimeout(() => {
+                            this.initializeChart();
+                        }, 100);
+                    } else {
+                        // Resize chart when switching back to data tab
+                        setTimeout(() => {
+                            this.resizeChart();
+                        }, 100);
+                    }
                 }
                 
-                console.log(`📑 Switched to ${this.currentTab} tab`);
+                console.log(`📑 Switched from ${previousTab} to ${this.currentTab} tab`);
             });
         });
     }
@@ -745,6 +795,13 @@ class UltiBikerDashboard {
     }
 
     initializeChart() {
+        // Wait for Chart.js to load
+        if (typeof Chart === 'undefined') {
+            console.log('📊 Chart.js not yet loaded, waiting...');
+            setTimeout(() => this.initializeChart(), 100);
+            return;
+        }
+        
         const ctx = document.getElementById('liveChart').getContext('2d');
         
         this.chart = new Chart(ctx, {
@@ -908,6 +965,9 @@ class UltiBikerDashboard {
         
         // Update raw data stream
         this.updateRawDataStream(reading);
+        
+        // Update device list sensor data display
+        this.updateDeviceListSensorData(reading.deviceId);
     }
 
     updateMetricDisplay(metricType, value, unit, deviceId = null) {
@@ -959,7 +1019,7 @@ class UltiBikerDashboard {
     }
 
     updateChart(reading) {
-        const now = new Date().toLocaleTimeString();
+        const now = dateFns.format(new Date(), 'HH:mm:ss');
         const datasets = this.chart.data.datasets;
         const labels = this.chart.data.labels;
         
@@ -1014,7 +1074,7 @@ class UltiBikerDashboard {
         }
         
         if (lastUpdateElement && this.lastUpdateTime) {
-            lastUpdateElement.textContent = this.lastUpdateTime.toLocaleTimeString();
+            lastUpdateElement.textContent = dateFns.format(this.lastUpdateTime, 'HH:mm:ss');
         }
         
         if (dataRateDisplayElement) {
@@ -1026,7 +1086,7 @@ class UltiBikerDashboard {
         const rawDataElement = document.getElementById('rawDataStream');
         if (!rawDataElement) return;
         
-        const timestamp = new Date().toLocaleTimeString();
+        const timestamp = dateFns.format(new Date(), 'HH:mm:ss');
         const deviceName = this.getDeviceName(reading.deviceId) || reading.deviceId;
         const dataLine = `${timestamp} | ${deviceName}: ${reading.value} ${reading.unit || ''}`;
         
@@ -1053,17 +1113,134 @@ class UltiBikerDashboard {
         // Check connected devices first
         const connectedDevice = this.connectedDevices.get(deviceId);
         if (connectedDevice) {
-            return connectedDevice.name;
+            return this.formatDeviceName(connectedDevice);
         }
         
         // Check discovered devices
         const discoveredDevice = this.discoveredDevices.get(deviceId);
         if (discoveredDevice) {
-            return discoveredDevice.name;
+            return this.formatDeviceName(discoveredDevice);
+        }
+        
+        // Try to extract meaningful info from deviceId patterns
+        const friendlyName = this.generateFriendlyDeviceName(deviceId);
+        if (friendlyName !== deviceId) {
+            return friendlyName;
         }
         
         // Return shortened ID as fallback
         return deviceId.length > 8 ? deviceId.substring(0, 8) + '...' : deviceId;
+    }
+    
+    formatDeviceName(device) {
+        // Use displayName if available (highest priority)
+        if (device.displayName && device.displayName !== device.id) {
+            return device.displayName;
+        }
+        
+        // Use name if available and meaningful
+        if (device.name && device.name !== device.id) {
+            return device.name;
+        }
+        
+        // Try to build a meaningful name from available data
+        let name = '';
+        
+        // Add manufacturer if available
+        if (device.manufacturer) {
+            name = device.manufacturer;
+        }
+        
+        // Add device type/model
+        if (device.type && device.type !== 'unknown') {
+            const typeNames = {
+                'heart_rate': 'Heart Rate Monitor',
+                'power': 'Power Meter',
+                'cadence': 'Cadence Sensor',
+                'speed': 'Speed Sensor',
+                'fitness_machine': 'Fitness Machine',
+                'trainer': 'Smart Trainer'
+            };
+            const typeName = typeNames[device.type] || this.capitalizeWords(device.type.replace(/_/g, ' '));
+            name = name ? `${name} ${typeName}` : typeName;
+        }
+        
+        // If we built a meaningful name, return it
+        if (name) {
+            return name;
+        }
+        
+        // Fallback to generating friendly name from ID
+        return this.generateFriendlyDeviceName(device.id);
+    }
+    
+    generateFriendlyDeviceName(deviceId) {
+        // Common device ID patterns and their friendly names
+        const patterns = [
+            // ANT+ device patterns
+            { regex: /^ant_(\d+)_(\d+)$/, format: (match) => `ANT+ Device ${match[2]} (${match[1]})` },
+            
+            // Bluetooth device patterns
+            { regex: /^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/i, format: () => `Bluetooth Device` },
+            
+            // Wahoo device patterns
+            { regex: /wahoo/i, format: () => 'Wahoo Device' },
+            { regex: /kickr/i, format: () => 'Wahoo KICKR' },
+            { regex: /elemnt/i, format: () => 'Wahoo ELEMNT' },
+            
+            // Garmin device patterns
+            { regex: /garmin/i, format: () => 'Garmin Device' },
+            { regex: /edge/i, format: () => 'Garmin Edge' },
+            { regex: /fenix/i, format: () => 'Garmin Fenix' },
+            { regex: /forerunner/i, format: () => 'Garmin Forerunner' },
+            
+            // Polar device patterns
+            { regex: /polar/i, format: () => 'Polar Device' },
+            { regex: /h10/i, format: () => 'Polar H10' },
+            { regex: /h9/i, format: () => 'Polar H9' },
+            
+            // Suunto device patterns
+            { regex: /suunto/i, format: () => 'Suunto Device' },
+            
+            // Zwift device patterns
+            { regex: /zwift/i, format: () => 'Zwift Device' },
+            
+            // Stages device patterns
+            { regex: /stages/i, format: () => 'Stages Power Meter' },
+            
+            // Tacx device patterns
+            { regex: /tacx/i, format: () => 'Tacx Trainer' },
+            
+            // Elite device patterns
+            { regex: /elite/i, format: () => 'Elite Trainer' },
+            
+            // Cycleops device patterns
+            { regex: /cycleops|saris/i, format: () => 'Saris/CycleOps Device' },
+            
+            // Generic patterns based on common prefixes
+            { regex: /^hr[_-]/i, format: () => 'Heart Rate Monitor' },
+            { regex: /^power[_-]/i, format: () => 'Power Meter' },
+            { regex: /^speed[_-]/i, format: () => 'Speed Sensor' },
+            { regex: /^cadence[_-]/i, format: () => 'Cadence Sensor' },
+            { regex: /^trainer[_-]/i, format: () => 'Smart Trainer' }
+        ];
+        
+        // Check each pattern
+        for (const pattern of patterns) {
+            const match = deviceId.match(pattern.regex);
+            if (match) {
+                return pattern.format(match);
+            }
+        }
+        
+        // If no pattern matches, return the original ID
+        return deviceId;
+    }
+    
+    capitalizeWords(str) {
+        return str.replace(/\w\S*/g, (txt) => 
+            txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+        );
     }
 
     async startScan() {
@@ -1209,30 +1386,51 @@ class UltiBikerDashboard {
     createDeviceElement(device, isConnected) {
         const div = document.createElement('div');
         div.className = 'device-list-item';
+        div.id = `device-${device.deviceId}`;
         
         const typeIcon = this.getDeviceIcon(device.type);
         const protocolIcon = device.protocol === 'ant_plus' ? 'fas fa-satellite-dish' : 'fab fa-bluetooth';
         const signalClass = this.getSignalClass(device.signalStrength || 0);
+        
+        // Get real-time sensor data if connected
+        const sensorData = this.deviceMetrics.get(device.deviceId);
+        const sensorDataDisplay = this.formatSensorDataDisplay(sensorData, device.type);
+        
+        // Enhanced device display with comprehensive details
+        const manufacturerInfo = device.manufacturer ? `<span class="badge bg-secondary me-1">${device.manufacturer}</span>` : '';
+        const categoryInfo = device.category ? `<small class="text-muted">${device.category}</small>` : '';
+        const confidenceInfo = device.confidence && device.confidence < 100 ? 
+            `<span class="badge bg-warning text-dark ms-1" title="Identification Confidence">${device.confidence}%</span>` : '';
         
         div.innerHTML = `
             <div class="d-flex justify-content-between align-items-center w-100">
                 <div class="flex-grow-1">
                     <div class="fw-bold d-flex align-items-center mb-1">
                         <i class="${typeIcon} me-2 ${device.type}"></i>
-                        ${device.name || 'Unknown Device'}
+                        ${device.displayName || device.name || 'Unknown Device'}
+                        ${confidenceInfo}
                     </div>
-                    <div class="d-flex align-items-center">
-                        <small class="text-muted me-2">
-                            <i class="${protocolIcon} me-1"></i>
-                            ${(device.protocol || 'unknown').toUpperCase()}
-                        </small>
-                        <div class="signal-indicator ${signalClass}">
-                            <div class="signal-bar"></div>
-                            <div class="signal-bar"></div>
-                            <div class="signal-bar"></div>
-                            <div class="signal-bar"></div>
+                    <div class="d-flex align-items-center flex-wrap mb-1">
+                        ${manufacturerInfo}
+                        ${categoryInfo}
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <small class="text-muted me-2">
+                                <i class="${protocolIcon} me-1"></i>
+                                ${(device.protocol || 'unknown').toUpperCase()}
+                            </small>
+                            <div class="signal-indicator ${signalClass}">
+                                <div class="signal-bar"></div>
+                                <div class="signal-bar"></div>
+                                <div class="signal-bar"></div>
+                                <div class="signal-bar"></div>
+                            </div>
+                            <small class="text-muted ms-2">${device.signalStrength || 0}%</small>
                         </div>
-                        <small class="text-muted ms-2">${device.signalStrength || 0}%</small>
+                        <div class="sensor-data-display" id="sensor-data-${device.deviceId}">
+                            ${sensorDataDisplay}
+                        </div>
                     </div>
                 </div>
                 <div>
@@ -1258,32 +1456,107 @@ class UltiBikerDashboard {
         return 'signal-poor';
     }
 
+    formatSensorDataDisplay(sensorData, deviceType) {
+        if (!sensorData || !sensorData.lastValue) return '';
+        
+        const value = sensorData.lastValue;
+        const timeSinceUpdate = dateFns.differenceInSeconds(new Date(), new Date(sensorData.lastUpdate));
+        const isStale = timeSinceUpdate > 5; // 5 seconds
+        
+        const staleClass = isStale ? 'text-muted' : 'text-success';
+        const icon = this.getSensorDataIcon(sensorData.metricType);
+        const unit = this.getSensorDataUnit(sensorData.metricType);
+        
+        // Add relative time display for data freshness
+        const relativeTime = this.getRelativeTimeDisplay(sensorData.lastUpdate);
+        
+        return `
+            <small class="sensor-live-data ${staleClass}">
+                <i class="${icon} me-1"></i>
+                ${Math.round(value)}${unit}
+                <span class="text-muted ms-2">(${relativeTime})</span>
+            </small>
+        `;
+    }
+
+    getSensorDataIcon(metricType) {
+        const icons = {
+            'heart_rate': 'fas fa-heartbeat',
+            'power': 'fas fa-bolt',
+            'cadence': 'fas fa-sync-alt',
+            'speed': 'fas fa-tachometer-alt'
+        };
+        return icons[metricType] || 'fas fa-circle';
+    }
+
+    getSensorDataUnit(metricType) {
+        const units = {
+            'heart_rate': ' BPM',
+            'power': 'W',
+            'cadence': ' RPM',
+            'speed': ' km/h'
+        };
+        return units[metricType] || '';
+    }
+
+    updateDeviceListSensorData(deviceId) {
+        const sensorDataElement = document.getElementById(`sensor-data-${deviceId}`);
+        if (sensorDataElement) {
+            const sensorData = this.deviceMetrics.get(deviceId);
+            const device = this.connectedDevices.find(d => d.deviceId === deviceId) ||
+                          this.discoveredDevices.find(d => d.deviceId === deviceId);
+            
+            if (sensorData) {
+                const sensorDataDisplay = this.formatSensorDataDisplay(sensorData, device?.type);
+                sensorDataElement.innerHTML = sensorDataDisplay;
+            }
+        }
+    }
+
     createConnectedDeviceElement(device) {
         const div = document.createElement('div');
         div.className = 'device-list-item bg-success bg-opacity-10 border-success';
+        div.id = `device-${device.deviceId}`;
         
         const typeIcon = this.getDeviceIcon(device.type);
         const signalClass = this.getSignalClass(device.signalStrength || 0);
+        
+        // Get real-time sensor data
+        const sensorData = this.deviceMetrics.get(device.deviceId);
+        const sensorDataDisplay = this.formatSensorDataDisplay(sensorData, device.type);
+        
+        // Enhanced device display with comprehensive details
+        const manufacturerInfo = device.manufacturer ? `<span class="badge bg-secondary me-1">${device.manufacturer}</span>` : '';
+        const categoryInfo = device.category ? `<small class="text-muted">${device.category}</small>` : '';
         
         div.innerHTML = `
             <div class="d-flex justify-content-between align-items-center w-100">
                 <div class="flex-grow-1">
                     <div class="fw-bold d-flex align-items-center mb-1">
                         <i class="${typeIcon} me-2 ${device.type}"></i>
-                        ${device.name || 'Unknown Device'}
+                        ${device.displayName || device.name || 'Unknown Device'}
                     </div>
-                    <div class="d-flex align-items-center">
-                        <small class="text-success me-2">
-                            <i class="fas fa-check-circle me-1"></i>
-                            Connected
-                        </small>
-                        <div class="signal-indicator ${signalClass}">
-                            <div class="signal-bar"></div>
-                            <div class="signal-bar"></div>
-                            <div class="signal-bar"></div>
-                            <div class="signal-bar"></div>
+                    <div class="d-flex align-items-center flex-wrap mb-1">
+                        ${manufacturerInfo}
+                        ${categoryInfo}
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <small class="text-success me-2">
+                                <i class="fas fa-check-circle me-1"></i>
+                                Connected
+                            </small>
+                            <div class="signal-indicator ${signalClass}">
+                                <div class="signal-bar"></div>
+                                <div class="signal-bar"></div>
+                                <div class="signal-bar"></div>
+                                <div class="signal-bar"></div>
+                            </div>
+                            <small class="text-muted ms-2">${device.signalStrength || 0}%</small>
                         </div>
-                        <small class="text-muted ms-2">${device.signalStrength || 0}%</small>
+                        <div class="sensor-data-display" id="sensor-data-${device.deviceId}">
+                            ${sensorDataDisplay}
+                        </div>
                     </div>
                 </div>
                 <div>
@@ -1371,7 +1644,7 @@ class UltiBikerDashboard {
 
     // Session Management
     startSession() {
-        const sessionName = prompt('Enter session name (optional):', `Ride ${new Date().toLocaleDateString()}`);
+        const sessionName = prompt('Enter session name (optional):', `Ride ${dateFns.format(new Date(), 'yyyy-MM-dd')}`);
         if (sessionName === null) return; // User cancelled
         
         this.socket.emit('start-session', { name: sessionName || undefined }, (response) => {
@@ -1404,6 +1677,266 @@ class UltiBikerDashboard {
             console.log('⏹️ Stopping workout session...');
         }
     }
+
+    // Session pause/resume functionality
+    // Based on WebSocket pause/resume patterns from GitHub research
+    togglePauseSession() {
+        if (!this.currentSessionId) {
+            this.showNotification('No active session to pause', 'warning');
+            return;
+        }
+
+        const isPaused = this.isSessionPaused || false;
+        const action = isPaused ? 'resume' : 'pause';
+        
+        this.socket.emit(`${action}-session`, { sessionId: this.currentSessionId }, (response) => {
+            if (response && response.success) {
+                this.isSessionPaused = !isPaused;
+                this.updatePauseButtonState();
+                
+                const message = isPaused ? 'Session resumed' : 'Session paused';
+                const type = isPaused ? 'success' : 'info';
+                this.showNotification(message, type);
+                
+                console.log(`${isPaused ? '▶️' : '⏸️'} Session ${action}d successfully`);
+            } else {
+                const error = response?.error || `Failed to ${action} session`;
+                this.showNotification(`Failed to ${action} session: ${error}`, 'error');
+                console.error(`❌ Failed to ${action} session:`, error);
+            }
+        });
+        
+        console.log(`${isPaused ? '▶️' : '⏸️'} ${isPaused ? 'Resuming' : 'Pausing'} workout session...`);
+    }
+
+    updatePauseButtonState() {
+        const pauseBtn = document.getElementById('pauseSessionBtn');
+        if (!pauseBtn) return;
+        
+        const isPaused = this.isSessionPaused || false;
+        const icon = pauseBtn.querySelector('i');
+        const text = pauseBtn.childNodes[pauseBtn.childNodes.length - 1];
+        
+        if (isPaused) {
+            if (icon) icon.className = 'fas fa-play';
+            if (text) text.textContent = ' Resume';
+            pauseBtn.className = 'btn btn-sm btn-success';
+            pauseBtn.title = 'Resume session';
+        } else {
+            if (icon) icon.className = 'fas fa-pause';
+            if (text) text.textContent = ' Pause';
+            pauseBtn.className = 'btn btn-sm btn-outline-warning';
+            pauseBtn.title = 'Pause session';
+        }
+    }
+
+    // Session data export functionality
+    // Using vanilla JavaScript for CSV export (could use json2csv or export-to-csv libraries)
+    async exportSessionData() {
+        if (!this.currentSessionId) {
+            this.showNotification('No active session to export', 'warning');
+            return;
+        }
+
+        try {
+            this.showNotification('Preparing export data...', 'info');
+            
+            // Fetch session data from server
+            const response = await fetch(`/api/sessions/${this.currentSessionId}/export`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const sessionData = await response.json();
+            
+            // Show export options
+            this.showExportDialog(sessionData);
+            
+        } catch (error) {
+            console.error('❌ Failed to fetch session data for export:', error);
+            errorHandler.showErrorDialog({
+                type: 'error',
+                title: 'Export Failed',
+                message: 'Unable to fetch session data for export. Please try again.',
+                details: error.message || 'Unknown export error',
+                showRetry: true,
+                retryAction: () => this.exportSessionData()
+            });
+        }
+    }
+
+    // Export dialog with multiple format options
+    showExportDialog(sessionData) {
+        // Create modal dialog for export options
+        // In production, could use Bootstrap modal or similar component library
+        const dialogHtml = `
+            <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Export Session Data</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Export session "${sessionData.name}" (${sessionData.dataPoints} data points)</p>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary" onclick="dashboard.downloadExport('csv', ${JSON.stringify(sessionData).replace(/"/g, '&quot;')})">
+                                    <i class="fas fa-file-csv"></i> Download CSV
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="dashboard.downloadExport('json', ${JSON.stringify(sessionData).replace(/"/g, '&quot;')})">
+                                    <i class="fas fa-file-code"></i> Download JSON
+                                </button>
+                                <button class="btn btn-outline-info" onclick="dashboard.downloadExport('gpx', ${JSON.stringify(sessionData).replace(/"/g, '&quot;')})">
+                                    <i class="fas fa-map-marked-alt"></i> Download GPX
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to page if not exists
+        let modal = document.getElementById('exportModal');
+        if (!modal) {
+            document.body.insertAdjacentHTML('beforeend', dialogHtml);
+            modal = document.getElementById('exportModal');
+        }
+        
+        // Show modal using Bootstrap
+        if (window.bootstrap) {
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+        } else {
+            // Fallback without Bootstrap
+            modal.style.display = 'block';
+            modal.classList.add('show');
+        }
+    }
+
+    // Download exported data in various formats
+    // Vanilla implementation - could be replaced with export-to-csv, tcx-js, etc.
+    downloadExport(format, sessionData) {
+        try {
+            let content, filename, mimeType;
+            
+            switch (format) {
+                case 'csv':
+                    content = this.convertToCSV(sessionData);
+                    filename = `${sessionData.name || 'session'}_${sessionData.id}.csv`;
+                    mimeType = 'text/csv';
+                    break;
+                    
+                case 'json':
+                    content = JSON.stringify(sessionData, null, 2);
+                    filename = `${sessionData.name || 'session'}_${sessionData.id}.json`;
+                    mimeType = 'application/json';
+                    break;
+                    
+                case 'gpx':
+                    content = this.convertToGPX(sessionData);
+                    filename = `${sessionData.name || 'session'}_${sessionData.id}.gpx`;
+                    mimeType = 'application/gpx+xml';
+                    break;
+                    
+                default:
+                    throw new Error('Unsupported export format');
+            }
+            
+            // Create and trigger download
+            // Using modern File API - could be enhanced with FileSaver.js library
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showNotification(`Exported ${format.toUpperCase()} successfully`, 'success');
+            console.log(`📄 Exported session data as ${format.toUpperCase()}: ${filename}`);
+            
+            // Close export modal
+            const modal = document.getElementById('exportModal');
+            if (modal && window.bootstrap) {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) bsModal.hide();
+            }
+            
+        } catch (error) {
+            console.error('❌ Export failed:', error);
+            this.showNotification(`Export failed: ${error.message}`, 'error');
+        }
+    }
+
+    // CSV conversion - could be replaced with json2csv library
+    convertToCSV(sessionData) {
+        if (!sessionData.sensorReadings || sessionData.sensorReadings.length === 0) {
+            return 'No sensor data available for export';
+        }
+        
+        // Create CSV headers
+        const headers = ['timestamp', 'deviceId', 'deviceName', 'metricType', 'value', 'unit', 'sessionId'];
+        let csv = headers.join(',') + '\n';
+        
+        // Add data rows
+        sessionData.sensorReadings.forEach(reading => {
+            const row = [
+                reading.timestamp || '',
+                reading.deviceId || '',
+                reading.deviceName || '',
+                reading.metricType || '',
+                reading.value || '',
+                reading.unit || '',
+                reading.sessionId || ''
+            ].map(field => `"${field}"`).join(',');
+            
+            csv += row + '\n';
+        });
+        
+        return csv;
+    }
+
+    // GPX conversion for fitness apps - could use gpx-builder library
+    convertToGPX(sessionData) {
+        const sessionName = sessionData.name || 'UltiBiker Session';
+        const startTime = new Date(sessionData.startTime || Date.now()).toISOString();
+        
+        let gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="UltiBiker" xmlns="http://www.topografix.com/GPX/1/1">
+    <metadata>
+        <name>${sessionName}</name>
+        <time>${startTime}</time>
+    </metadata>
+    <trk>
+        <name>${sessionName}</name>
+        <trkseg>`;
+        
+        // Add trackpoints from sensor data
+        if (sessionData.sensorReadings) {
+            sessionData.sensorReadings.forEach(reading => {
+                if (reading.metricType === 'heart_rate' || reading.metricType === 'power') {
+                    const timestamp = new Date(reading.timestamp || Date.now()).toISOString();
+                    gpx += `
+            <trkpt lat="0" lon="0">
+                <time>${timestamp}</time>
+                <extensions>
+                    <${reading.metricType}>${reading.value}</${reading.metricType}>
+                </extensions>
+            </trkpt>`;
+                }
+            });
+        }
+        
+        gpx += `
+        </trkseg>
+    </trk>
+</gpx>`;
+        
+        return gpx;
+    }
     
     updateSessionUI(isActive, sessionId = null, sessionName = null) {
         const startBtn = document.getElementById('startSessionBtn');
@@ -1411,6 +1944,7 @@ class UltiBikerDashboard {
         const sessionStatus = document.getElementById('sessionStatus');
         const recordingStatus = document.getElementById('recordingStatus');
         const recordingIndicator = document.getElementById('recordingIndicator');
+        const sessionControls = document.getElementById('sessionControls');
         
         this.isRecording = isActive;
         this.currentSessionId = sessionId;
@@ -1418,6 +1952,7 @@ class UltiBikerDashboard {
         if (isActive) {
             if (startBtn) startBtn.style.display = 'none';
             if (stopBtn) stopBtn.style.display = 'inline-block';
+            if (sessionControls) sessionControls.style.display = 'flex';
             if (sessionStatus) {
                 sessionStatus.innerHTML = `<span class="badge bg-success">Active Session</span>`;
                 if (sessionName) {
@@ -1432,6 +1967,7 @@ class UltiBikerDashboard {
         } else {
             if (startBtn) startBtn.style.display = 'inline-block';
             if (stopBtn) stopBtn.style.display = 'none';
+            if (sessionControls) sessionControls.style.display = 'none';
             if (sessionStatus) {
                 sessionStatus.innerHTML = '<span class="badge bg-secondary">No Active Session</span>';
             }
@@ -1448,7 +1984,7 @@ class UltiBikerDashboard {
             const now = new Date();
             const timeElement = document.getElementById('liveTime');
             if (timeElement) {
-                timeElement.textContent = now.toLocaleTimeString();
+                timeElement.textContent = dateFns.format(now, 'HH:mm:ss');
             }
         }, 1000);
     }
@@ -1540,6 +2076,10 @@ class UltiBikerDashboard {
         if (status.activeSession) {
             this.currentSessionId = status.activeSession;
             this.updateSessionUI(true, status.activeSession, 'Active Session');
+        } else if (status.hasOwnProperty('activeSession')) {
+            // Explicitly check if activeSession is null/undefined to avoid false positives
+            this.currentSessionId = null;
+            this.updateSessionUI(false);
         }
     }
 
@@ -1949,6 +2489,70 @@ class UltiBikerDashboard {
         }
     }
 
+    async requestNativeBluetoothPermission() {
+        console.log('🔒 Requesting native OS Bluetooth permission...');
+        
+        try {
+            const response = await fetch('/api/permissions/request-bluetooth', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            console.log('🔒 Native permission request result:', result);
+            
+            if (result.success && result.data.permission.granted) {
+                // Show success message
+                window.showToast('success', '✅ Bluetooth Permission Granted!', 'You can now scan for Bluetooth devices.');
+                
+                // Refresh permission status
+                await this.checkServerPermissions();
+                
+                // Hide permission alert if visible
+                const permissionAlert = document.getElementById('permission-alert');
+                if (permissionAlert) {
+                    permissionAlert.style.display = 'none';
+                }
+                
+            } else if (result.success && !result.data.permission.granted) {
+                // Permission was denied
+                const message = result.data.message || 'Bluetooth permission was not granted';
+                const nextSteps = result.data.nextSteps || result.data.permission.instructions || [];
+                
+                let toastMessage = message;
+                if (nextSteps.length > 0) {
+                    toastMessage += '\n\nNext steps:\n• ' + nextSteps.join('\n• ');
+                }
+                
+                window.showToast('warning', '⚠️ Permission Not Granted', toastMessage, 8000);
+                
+            } else {
+                throw new Error(result.error || 'Unknown error occurred');
+            }
+            
+        } catch (error) {
+            console.error('❌ Failed to request native Bluetooth permission:', error);
+            
+            let errorMessage = 'Failed to request Bluetooth permission from the system.';
+            
+            if (error.message.includes('HTTP 500')) {
+                errorMessage += ' The server encountered an error. Check the console for details.';
+            } else if (error.message.includes('Failed to fetch')) {
+                errorMessage += ' Could not connect to the server.';
+            } else {
+                errorMessage += ` Error: ${error.message}`;
+            }
+            
+            window.showToast('error', '❌ Permission Request Failed', errorMessage, 8000);
+        }
+    }
+
     // Permission System Methods
     setupPermissionHandlers() {
         const checkPermissionsBtn = document.getElementById('checkPermissionsBtn');
@@ -1969,12 +2573,7 @@ class UltiBikerDashboard {
         
         if (requestBluetoothBtn) {
             requestBluetoothBtn.addEventListener('click', async () => {
-                const granted = await this.requestBluetoothPermission();
-                if (granted) {
-                    // Recheck permissions after granting
-                    this.checkPermissions();
-                    this.checkServerPermissions();
-                }
+                await this.requestNativeBluetoothPermission();
             });
         }
     }
@@ -2142,6 +2741,150 @@ class UltiBikerDashboard {
             console.log('⏹️ Stopped permission status updates');
         }
     }
+    
+    setupUserActivityTracking() {
+        // Track user activity for idle detection
+        const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+        
+        const updateActivity = () => {
+            this.lastUserActivity = Date.now();
+        };
+        
+        activityEvents.forEach(event => {
+            document.addEventListener(event, updateActivity, true);
+        });
+        
+        console.log('👤 User activity tracking initialized');
+    }
+    
+    isUserIdle() {
+        return (Date.now() - this.lastUserActivity) > this.idleThreshold;
+    }
+    
+    startAutoScanning() {
+        if (this.autoScanEnabled) {
+            console.log('🔍 Auto-scanning already enabled');
+            return;
+        }
+        
+        this.autoScanEnabled = true;
+        console.log('🔍 Starting automatic device scanning for Device Connection tab');
+        
+        // Start initial scan immediately
+        this.performAutoScan();
+        
+        // Set up periodic scanning with dynamic rate based on idle status
+        this.autoScanInterval = setInterval(() => {
+            this.performAutoScan();
+        }, this.getCurrentScanRate());
+        
+        // Start continuous permission checking
+        this.startAutoPermissionChecking();
+        
+        this.showNotification('Auto-scanning enabled for Device Connection tab', 'info', 'Devices will be scanned automatically while this tab is open');
+    }
+    
+    stopAutoScanning() {
+        if (!this.autoScanEnabled) {
+            return;
+        }
+        
+        this.autoScanEnabled = false;
+        console.log('⏹️ Stopping automatic device scanning');
+        
+        // Clear scanning interval
+        if (this.autoScanInterval) {
+            clearInterval(this.autoScanInterval);
+            this.autoScanInterval = null;
+        }
+        
+        // Stop auto permission checking
+        this.stopAutoPermissionChecking();
+        
+        // Stop any ongoing scan
+        if (this.isScanning) {
+            this.stopScan();
+        }
+        
+        this.showNotification('Auto-scanning disabled', 'info');
+    }
+    
+    getCurrentScanRate() {
+        return this.isUserIdle() ? this.idleScanRate : this.normalScanRate;
+    }
+    
+    performAutoScan() {
+        if (!this.autoScanEnabled || this.currentTab !== 'devices') {
+            return;
+        }
+        
+        const rate = this.getCurrentScanRate();
+        const idleStatus = this.isUserIdle() ? ' (idle mode)' : '';
+        
+        console.log(`🔍 Auto-scan triggered - next scan in ${rate/1000}s${idleStatus}`);
+        
+        // Start a scan if not already scanning
+        if (!this.isScanning) {
+            this.startScan();
+        }
+        
+        // Update scan interval based on current idle status
+        if (this.autoScanInterval) {
+            clearInterval(this.autoScanInterval);
+            this.autoScanInterval = setInterval(() => {
+                this.performAutoScan();
+            }, this.getCurrentScanRate());
+        }
+    }
+    
+    startAutoPermissionChecking() {
+        if (this.autoPermissionCheckInterval) {
+            return;
+        }
+        
+        console.log('🔒 Starting continuous permission checking');
+        
+        // Check permissions every 10 seconds when on devices tab
+        this.autoPermissionCheckInterval = setInterval(() => {
+            if (this.autoScanEnabled && this.currentTab === 'devices') {
+                this.checkServerPermissions();
+            }
+        }, 10000);
+    }
+    
+    stopAutoPermissionChecking() {
+        if (this.autoPermissionCheckInterval) {
+            clearInterval(this.autoPermissionCheckInterval);
+            this.autoPermissionCheckInterval = null;
+            console.log('🔒 Stopped continuous permission checking');
+        }
+    }
+    
+    // Date/Time Utility Methods
+    getRelativeTimeDisplay(timestamp) {
+        if (!timestamp) return 'unknown';
+        
+        const now = new Date();
+        const date = new Date(timestamp);
+        
+        const seconds = dateFns.differenceInSeconds(now, date);
+        
+        if (seconds < 1) return 'now';
+        if (seconds < 60) return `${seconds}s ago`;
+        
+        const minutes = dateFns.differenceInMinutes(now, date);
+        if (minutes < 60) return `${minutes}m ago`;
+        
+        const hours = dateFns.differenceInHours(now, date);
+        if (hours < 24) return `${hours}h ago`;
+        
+        return dateFns.formatDistanceToNow(date, { addSuffix: true });
+    }
+    
+    formatSessionTimestamp(timestamp) {
+        if (!timestamp) return 'Unknown';
+        return dateFns.format(new Date(timestamp), 'MMM dd, yyyy HH:mm:ss');
+    }
 }
 
 // Initialize dashboard when page loads
@@ -2171,6 +2914,17 @@ window.addEventListener('beforeunload', () => {
         }
         if (dashboard.permissionUpdateInterval) {
             clearInterval(dashboard.permissionUpdateInterval);
+        }
+        if (dashboard.autoScanInterval) {
+            clearInterval(dashboard.autoScanInterval);
+        }
+        if (dashboard.autoPermissionCheckInterval) {
+            clearInterval(dashboard.autoPermissionCheckInterval);
+        }
+        
+        // Stop auto-scanning cleanly
+        if (dashboard.autoScanEnabled) {
+            dashboard.stopAutoScanning();
         }
     }
 });

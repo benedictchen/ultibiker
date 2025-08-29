@@ -174,5 +174,43 @@ export function createPermissionRoutes(sensorManager: UltiBikerSensorManager): R
     }
   });
 
+  // Request native OS permission for Bluetooth
+  router.post('/request-bluetooth', async (req: Request, res: Response) => {
+    try {
+      console.log('🔒 API request to grant native Bluetooth permission');
+      
+      // Get permission manager from sensor manager
+      const permissionStatus = await sensorManager.getPermissionStatus();
+      
+      // For now, we'll use the permission manager directly
+      // In future, we might need to add a method to sensor manager for this
+      const { PermissionManager } = await import('../services/permission-manager.js');
+      const permissionManager = new PermissionManager();
+      
+      const result = await permissionManager.requestNativeBluetoothPermission();
+      
+      res.json({
+        success: true,
+        data: {
+          permission: result,
+          message: result.granted ? 
+            'Bluetooth permission granted successfully' : 
+            'Bluetooth permission was not granted',
+          nextSteps: result.granted ? 
+            ['You can now scan for Bluetooth sensors', 'Try clicking "Start Scan" to find devices'] :
+            result.instructions
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Error requesting Bluetooth permission:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to request Bluetooth permission',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   return router;
 }
