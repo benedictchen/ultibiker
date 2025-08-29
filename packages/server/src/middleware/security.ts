@@ -1,3 +1,13 @@
+// FIXME: Security middleware improvements needed:
+// 1. Add request body size limits to prevent DoS attacks
+// 2. Implement API key authentication for third-party integrations
+// 3. Add IP whitelisting for admin endpoints  
+// 4. Implement proper session management with secure cookies
+// 5. Add request sanitization to prevent injection attacks
+// 6. Implement proper HTTPS redirect in production
+// 7. Add security event logging and monitoring
+// 8. Consider implementing OAuth2/OpenID Connect for user authentication
+
 import helmet from 'helmet';
 import compression from 'compression';
 import cors from 'cors';

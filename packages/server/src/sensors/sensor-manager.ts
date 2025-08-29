@@ -22,7 +22,15 @@ export class UltiBikerSensorManager extends EventEmitter implements SensorManage
   private connectedDevices = new Map<string, SensorDevice>();
   private discoveredDevices = new Map<string, SensorDevice>();
   private isScanning = false;
+  // FIXME: Replace 'any' type with proper SessionManager interface
   private sessionManager: any = null;
+
+  // FIXME: Add connection state management improvements:
+  // 1. Implement device connection timeout handling (30s timeout)
+  // 2. Add connection retry logic with exponential backoff
+  // 3. Track connection health with heartbeat mechanism
+  // 4. Implement device connection pool management
+  // 5. Add device priority management for limited connection slots
 
   constructor(sessionManager?: any) {
     super();

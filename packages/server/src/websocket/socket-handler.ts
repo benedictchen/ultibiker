@@ -1,3 +1,13 @@
+// FIXME: WebSocket improvements needed:
+// 1. Add proper authentication and authorization for WebSocket connections
+// 2. Implement user session management and device ownership validation
+// 3. Add message validation and sanitization for security
+// 4. Implement connection rate limiting and abuse prevention
+// 5. Add proper error handling for malformed messages
+// 6. Implement WebSocket connection pooling for scaling
+// 7. Add message queuing for offline clients (Redis-based)
+// 8. Consider implementing WebRTC for direct peer-to-peer sensor data
+
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { UltiBikerSensorManager } from '../sensors/sensor-manager.js';
@@ -26,9 +36,10 @@ export class SocketHandler {
     sensorManager: UltiBikerSensorManager,
     sessionManager: SessionManager
   ) {
+    // FIXME: Security vulnerability - wildcard CORS origin should be restricted
     this.io = new SocketIOServer(server, {
       cors: {
-        origin: "*",
+        origin: "*", // FIXME: Replace with specific allowed origins for production
         methods: ["GET", "POST"]
       },
       // Enhanced connection options for better reliability
@@ -311,6 +322,24 @@ export class SocketHandler {
     // Forward sensor manager events to subscribed clients
     this.sensorManager.on('scan-result', (event) => {
       this.broadcastDeviceEvent(event);
+    });
+
+    // Handle device discovery events
+    this.sensorManager.on('device-discovered', (device) => {
+      console.log('📡 Broadcasting device discovery:', device.name || device.id);
+      this.io.emit('device-discovered', device);
+    });
+
+    // Handle device connection events  
+    this.sensorManager.on('device-connected', (device) => {
+      console.log('🔗 Broadcasting device connection:', device.name || device.id);
+      this.io.emit('device-connected', device);
+    });
+
+    // Handle device disconnection events
+    this.sensorManager.on('device-disconnected', (deviceId) => {
+      console.log('🔌 Broadcasting device disconnection:', deviceId);
+      this.io.emit('device-disconnected', deviceId);
     });
 
     this.sensorManager.on('device-status', (event) => {

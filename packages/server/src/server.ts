@@ -1,3 +1,12 @@
+// FIXME: Server architecture improvements needed:
+// 1. Add graceful shutdown handling for all services (database, sensors, websocket connections)
+// 2. Implement proper service health checks and readiness probes for production deployment  
+// 3. Add structured configuration management using environment-specific config files
+// 4. Implement proper dependency injection pattern for better testability
+// 5. Add comprehensive error recovery strategies for sensor disconnections
+// 6. Consider adding cluster mode support for horizontal scaling
+// 7. Implement proper signal handling (SIGTERM, SIGINT, SIGKILL)
+
 import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -181,11 +190,33 @@ class UltiBikerServer {
     logger.info('🔗 Sensor data integration configured');
   }
 
+  // FIXME: Add proper shutdown handling
+  async shutdown(): Promise<void> {
+    logger.info('🛑 Shutting down UltiBiker server...');
+    
+    // Close WebSocket connections gracefully
+    this.socketHandler.close();
+    
+    // Stop sensor scanning and close connections
+    await this.sensorManager.stopScanning();
+    
+    // Close database connections
+    await closeDatabase();
+    
+    // Close HTTP server
+    this.server.close();
+    
+    logger.info('✅ UltiBiker server shutdown complete');
+  }
+
   async start(): Promise<void> {
     try {
       // Initialize database
       logger.info('🗃️  Initializing database...');
       await initializeDatabase();
+
+      // FIXME: Add health check endpoint before starting server
+      // FIXME: Add readiness probe to ensure all services are initialized
 
       // Start the server
       this.server.listen(this.port, () => {

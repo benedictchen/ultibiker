@@ -34,8 +34,24 @@ export async function initializeDatabase() {
   }
 }
 
+// FIXME: Add database connection pooling for production:
+// 1. Implement connection pooling for concurrent request handling
+// 2. Add database health checks and automatic reconnection
+// 3. Implement proper error handling for database failures
+// 4. Add database metrics collection and monitoring
+// 5. Consider read replica support for query scaling
+// 6. Add database backup automation with S3 integration
+// 7. Implement proper transaction management with rollback support
+// 8. Add query performance monitoring and slow query logging
+
 // Cleanup function for graceful shutdown
-export function closeDatabase() {
-  sqlite.close();
-  console.log('🔒 Database connection closed');
+export async function closeDatabase(): Promise<void> {
+  // FIXME: Add proper connection cleanup and pending transaction handling
+  try {
+    sqlite.close();
+    console.log('🔒 Database connection closed');
+  } catch (error) {
+    console.error('❌ Error closing database:', error);
+    throw error;
+  }
 }

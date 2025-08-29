@@ -65,9 +65,10 @@ export const env = cleanEnv(process.env, {
     desc: 'Maximum requests per window'
   }),
   
+  // FIXME: Security vulnerability - wildcard CORS origin
   // CORS Configuration
   CORS_ORIGIN: str({
-    default: '*',
+    default: '*', // FIXME: Replace with specific allowed origins for production
     desc: 'CORS allowed origins (comma-separated for multiple)'
   }),
   

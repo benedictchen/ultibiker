@@ -1,3 +1,13 @@
+// FIXME: ANT+ Manager improvements needed:
+// 1. Add ANT-FS support for device configuration and data download
+// 2. Implement ANT+ device pairing and authentication
+// 3. Add support for ANT+ extended messaging for higher data rates
+// 4. Implement proper channel management for multi-device scenarios
+// 5. Add ANT+ Common Pages support for battery status, manufacturer info
+// 6. Implement trainer control (ANT+ FE-C) for smart trainer resistance
+// 7. Add support for ANT+ Bridging to share data across networks
+// 8. Implement proper ANT stick detection and multi-stick support
+
 import { EventEmitter } from 'events';
 import { SensorDevice, SensorType } from '../types/sensor.js';
 import { GarminStick3, HeartRateSensor, BicyclePowerSensor, SpeedCadenceSensor, FitnessEquipmentSensor } from 'ant-plus-next';

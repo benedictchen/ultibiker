@@ -1,7 +1,17 @@
+// FIXME: BLE Manager improvements needed:
+// 1. Replace dynamic noble import with proper TypeScript-compatible BLE library
+// 2. Add proper device reconnection handling for dropped connections
+// 3. Implement BLE service caching to improve scan performance  
+// 4. Add proper error handling for BLE adapter state changes
+// 5. Implement device whitelisting/blacklisting for better UX
+// 6. Add BLE characteristic write capabilities for trainer control
+// 7. Implement proper device pairing and bonding support
+// 8. Add support for BLE 5.0 extended advertising
+
 import { EventEmitter } from 'events';
 import { SensorDevice, SensorType } from '../types/sensor.js';
-// DeviceIdentifier not implemented yet - using simplified identification
-// Dynamic import for noble to handle CommonJS module
+// FIXME: DeviceIdentifier not implemented yet - using simplified identification
+// FIXME: Replace dynamic noble import with proper TypeScript-compatible BLE library
 let noble: any = null;
 
 // Standard Cycling BLE Service UUIDs

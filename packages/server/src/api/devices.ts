@@ -1,3 +1,13 @@
+// FIXME: API security and validation improvements needed:
+// 1. Add input validation using Zod schemas for all request bodies
+// 2. Implement proper error handling middleware with consistent error responses  
+// 3. Add API rate limiting per endpoint (different limits for scan vs status)
+// 4. Implement API versioning (/v1/, /v2/) for future compatibility
+// 5. Add request logging and audit trails for device operations
+// 6. Implement proper HTTP status codes (409 for conflicts, 422 for validation)
+// 7. Add OpenAPI/Swagger documentation generation
+// 8. Consider implementing GraphQL for more efficient data fetching
+
 import { Router, Request, Response } from 'express';
 import { UltiBikerSensorManager } from '../sensors/sensor-manager.js';
 
