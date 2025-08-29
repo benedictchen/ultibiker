@@ -1,0 +1,11 @@
+# UltiBiker Logs Directory
+
+This directory contains application logs organized by category:
+
+- crashes/     - Application crash logs and stack traces
+- errors/      - General application errors and warnings  
+- sessions/    - Session-related logs and metrics
+- sensors/     - Sensor connection and data logs
+- performance/ - Performance metrics and benchmarks
+
+Log files are automatically rotated and cleaned up after 30 days.

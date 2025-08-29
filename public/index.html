@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UltiBiker - Cycling Sensor Dashboard</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Socket.IO Client -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <style>
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .header-brand {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            margin-bottom: 2rem;
+        }
+        
+        /* Tab System Styles */
+        .main-tabs {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 0;
+            margin-bottom: 2rem;
+        }
+        
+        .main-tabs .nav-link {
+            color: rgba(255, 255, 255, 0.7);
+            background: none;
+            border: none;
+            padding: 1rem 2rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .main-tabs .nav-link:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .main-tabs .nav-link.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+        }
+        
+        .tab-content {
+            min-height: 70vh;
+        }
+        
+        .metric-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2563eb;
+        }
+        
+        .metric-unit {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-left: 0.5rem;
+        }
+        
+        .device-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .device-connected {
+            border-left: 4px solid #10b981;
+        }
+        
+        .device-disconnected {
+            border-left: 4px solid #ef4444;
+        }
+        
+        .device-discovered {
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-connected { background-color: #10b981; }
+        .status-disconnected { background-color: #ef4444; }
+        .status-discovered { background-color: #f59e0b; }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            height: 400px;
+            max-height: 400px;
+            overflow: hidden;
+        }
+        
+        .chart-container canvas {
+            max-width: 100% !important;
+            max-height: 360px !important;
+            height: 360px !important;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        
+        .btn-outline-primary {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .btn-outline-primary:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+        }
+        
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .sensor-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .heart-rate { color: #FF6B6B; }
+        .power { color: #FF922B; }
+        .cadence { color: #4DABF7; }
+        .speed { color: #51CF66; }
+        .trainer { color: #9775FA; }
+        
+        /* Device Connection Styles */
+        .device-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            height: 400px;
+            overflow-y: auto;
+        }
+        
+        .device-list-item {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .device-list-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #667eea;
+        }
+        
+        .signal-indicator {
+            width: 20px;
+            height: 12px;
+            position: relative;
+            margin-left: 10px;
+        }
+        
+        .signal-bar {
+            position: absolute;
+            bottom: 0;
+            width: 3px;
+            background: #10b981;
+            border-radius: 1px;
+        }
+        
+        .signal-bar:nth-child(1) { left: 0; height: 3px; }
+        .signal-bar:nth-child(2) { left: 5px; height: 6px; }
+        .signal-bar:nth-child(3) { left: 10px; height: 9px; }
+        .signal-bar:nth-child(4) { left: 15px; height: 12px; }
+        
+        .signal-poor .signal-bar:nth-child(n+2) { opacity: 0.3; }
+        .signal-fair .signal-bar:nth-child(n+3) { opacity: 0.3; }
+        .signal-good .signal-bar:nth-child(n+4) { opacity: 0.3; }
+        
+        /* Hide data tab content initially */
+        .tab-pane {
+            display: none;
+        }
+        
+        .tab-pane.active {
+            display: block;
+        }
+
+        /* Error Dialog Styles */
+        .error-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .error-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .error-dialog {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            transform: translateY(-30px) scale(0.9);
+            transition: all 0.3s ease;
+        }
+
+        .error-overlay.show .error-dialog {
+            transform: translateY(0) scale(1);
+        }
+
+        .error-header {
+            padding: 1.5rem 1.5rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .error-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-right: 1rem;
+        }
+
+        .error-icon.error {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .error-icon.warning {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .error-icon.info {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .error-icon.success {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .error-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+            color: #1f2937;
+        }
+
+        .error-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .error-close:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .error-body {
+            padding: 1rem 1.5rem 1.5rem;
+        }
+
+        .error-message {
+            color: #4b5563;
+            line-height: 1.6;
+            margin: 0 0 1rem 0;
+            font-size: 0.95rem;
+        }
+
+        .error-details {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8rem;
+            color: #6b7280;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .error-details.show {
+            display: block;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .error-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .error-btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .error-btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .error-btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .error-btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .error-btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+
+        .error-btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .error-toggle-details {
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            font-size: 0.8rem;
+            text-decoration: underline;
+            margin-bottom: 1rem;
+            padding: 0;
+        }
+
+        .error-toggle-details:hover {
+            color: #374151;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            padding: 1rem;
+            max-width: 350px;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            border-left: 4px solid #e5e7eb;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-left-color: #10b981;
+        }
+
+        .toast.error {
+            border-left-color: #ef4444;
+        }
+
+        .toast.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .toast.info {
+            border-left-color: #3b82f6;
+        }
+
+        .toast-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .toast.success .toast-icon {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .toast.error .toast-icon {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .toast.warning .toast-icon {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .toast.info .toast-icon {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .toast-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .toast-message {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #1f2937;
+            margin: 0 0 0.25rem 0;
+        }
+
+        .toast-description {
+            font-size: 0.8rem;
+            color: #6b7280;
+            margin: 0;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0;
+            font-size: 1.2rem;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        /* Responsive Layout Classes */
+        .layout-compact .metric-card {
+            margin-bottom: 0.5rem;
+        }
+        
+        .layout-compact .sensor-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .layout-compact .metric-value {
+            font-size: 1.8rem;
+        }
+        
+        .layout-expanded .chart-container {
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+        }
+        
+        .layout-expanded .sensor-icon {
+            font-size: 2.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card header-brand rounded-4 border-0">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h1 class="h3 mb-0">
+                                    <i class="fas fa-bicycle me-2"></i>
+                                    UltiBiker MVP
+                                </h1>
+                                <p class="mb-0 opacity-75">Real-time cycling sensor data aggregation</p>
+                            </div>
+                            <div class="text-end">
+                                <div id="connectionStatus" class="d-flex align-items-center gap-2">
+                                    <span class="status-indicator status-disconnected"></span>
+                                    <span>Disconnected</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Navigation Tabs -->
+        <div class="row">
+            <div class="col-12">
+                <ul class="nav nav-pills main-tabs" id="mainTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="devices-tab" data-bs-toggle="pill" data-bs-target="#devices-panel" type="button" role="tab">
+                            <i class="fas fa-wifi me-2"></i> Device Connection
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="data-tab" data-bs-toggle="pill" data-bs-target="#data-panel" type="button" role="tab">
+                            <i class="fas fa-chart-line me-2"></i> Live Data Feed
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Tab Content -->
+        <div class="tab-content" id="mainTabContent">
+
+            <!-- TAB 1: Device Connection Panel -->
+            <div class="tab-pane fade show active" id="devices-panel" role="tabpanel">
+                <div class="row">
+                    <!-- Scan Controls -->
+                    <div class="col-12 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0 text-white">
+                                <i class="fas fa-search me-2"></i>
+                                Scan for Devices
+                            </h4>
+                            <div class="d-flex gap-2">
+                                <button id="scanBtn" class="btn btn-outline-light">
+                                    <i class="fas fa-radar-dish me-2"></i>Start Scan
+                                </button>
+                                <button id="stopScanBtn" class="btn btn-outline-danger" style="display:none;">
+                                    <i class="fas fa-stop me-2"></i>Stop Scan
+                                </button>
+                                <span id="scanStatus" class="badge bg-secondary align-self-center">Idle</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Discovered Devices -->
+                    <div class="col-md-6">
+                        <div class="device-section">
+                            <h5 class="mb-3">
+                                <i class="fas fa-list me-2 text-warning"></i>
+                                Detected Devices
+                            </h5>
+                            <div id="discoveredDevices">
+                                <div class="text-center py-5 text-muted">
+                                    <i class="fas fa-search fa-3x mb-3 opacity-50"></i>
+                                    <p class="mb-0">Click "Start Scan" to find sensors</p>
+                                    <small>ANT+ and Bluetooth devices will appear here</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Connected Devices -->
+                    <div class="col-md-6">
+                        <div class="device-section">
+                            <h5 class="mb-3">
+                                <i class="fas fa-check-circle me-2 text-success"></i>
+                                Connected Devices
+                            </h5>
+                            <div id="connectedDevices">
+                                <div class="text-center py-5 text-muted">
+                                    <i class="fas fa-unlink fa-2x mb-2 opacity-50"></i>
+                                    <p class="mb-0 small">No devices connected</p>
+                                    <small>Connected sensors will stream data automatically</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Permission Status Alert (Shows when permissions are missing) -->
+                    <div class="col-12" id="permissionAlert" style="display: none;">
+                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3">
+                                    <i class="fas fa-exclamation-triangle fa-2x text-warning"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h5 class="alert-heading mb-2">
+                                        <i class="fas fa-shield-alt me-2"></i>Device Permissions Required
+                                    </h5>
+                                    <p class="mb-2">UltiBiker needs access to your system's Bluetooth and USB devices to detect cycling sensors.</p>
+                                    <div id="permissionDetails" class="mb-3">
+                                        <div id="permissionStatus">
+                                            <div id="bluetoothPermission" class="d-flex align-items-center mb-2" style="display: none !important;">
+                                                <i class="fas fa-bluetooth me-2"></i>
+                                                <span class="fw-bold me-2">Bluetooth:</span>
+                                                <span id="bluetoothStatus" class="badge bg-secondary">Checking...</span>
+                                                <small class="text-muted ms-2" id="bluetoothMessage"></small>
+                                            </div>
+                                            <div id="usbPermission" class="d-flex align-items-center mb-2" style="display: none !important;">
+                                                <i class="fas fa-usb me-2"></i>
+                                                <span class="fw-bold me-2">ANT+ USB:</span>
+                                                <span id="usbStatus" class="badge bg-secondary">Checking...</span>
+                                                <small class="text-muted ms-2" id="usbMessage"></small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <button type="button" class="btn btn-warning btn-sm" id="checkPermissionsBtn">
+                                            <i class="fas fa-sync-alt me-1"></i>Check Permissions
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm" id="showPermissionGuideBtn">
+                                            <i class="fas fa-book me-1"></i>Setup Guide
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="alert">
+                                            <i class="fas fa-times me-1"></i>Dismiss
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Device Status Info -->
+                    <div class="col-12">
+                        <div class="device-section" style="height: auto; padding: 1rem;">
+                            <div class="row text-center">
+                                <div class="col-md-4">
+                                    <h6 class="mb-1">📡 ANT+ Stick: <span id="antStatus" class="badge bg-danger">Disconnected ❌</span></h6>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="mb-1">📶 Bluetooth: <span id="bleStatus" class="badge bg-success">Enabled ✅</span></h6>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="mb-1">🔗 Total Devices: <span id="deviceCount" class="badge bg-primary">0 connected</span></h6>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- TAB 2: Live Data Feed Panel -->
+            <div class="tab-pane fade" id="data-panel" role="tabpanel">
+                <div class="row">
+                    <!-- Live Data Feed Header -->
+                    <div class="col-12 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0 text-white">
+                                🔴 <span class="text-danger">●</span> LIVE DATA FEED - Connected Devices: <span id="liveDeviceCount">0</span>
+                            </h4>
+                            <div class="text-white">
+                                <i class="fas fa-clock me-2"></i>
+                                <span id="liveTime">--:--:--</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Live Metrics -->
+                    <div class="col-lg-8">
+                        <div class="row g-3 mb-4">
+                            <!-- Heart Rate -->
+                            <div class="col-md-6 col-xl-3">
+                                <div class="card metric-card border-0 rounded-4 h-100">
+                                    <div class="card-body text-center">
+                                        <div class="sensor-icon heart-rate">
+                                            <i class="fas fa-heartbeat"></i>
+                                        </div>
+                                        <div class="metric-value" id="heartRate">--</div>
+                                        <div class="metric-unit">BPM</div>
+                                        <div class="mt-2">
+                                            <small class="text-muted d-block">💓 Heart Rate</small>
+                                            <small class="text-muted" id="heartRateDevice">No device</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Power -->
+                            <div class="col-md-6 col-xl-3">
+                                <div class="card metric-card border-0 rounded-4 h-100">
+                                    <div class="card-body text-center">
+                                        <div class="sensor-icon power">
+                                            <i class="fas fa-bolt"></i>
+                                        </div>
+                                        <div class="metric-value" id="power">--</div>
+                                        <div class="metric-unit">W</div>
+                                        <div class="mt-2">
+                                            <small class="text-muted d-block">⚡ Power</small>
+                                            <small class="text-muted" id="powerDevice">No device</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cadence -->
+                            <div class="col-md-6 col-xl-3">
+                                <div class="card metric-card border-0 rounded-4 h-100">
+                                    <div class="card-body text-center">
+                                        <div class="sensor-icon cadence">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </div>
+                                        <div class="metric-value" id="cadence">--</div>
+                                        <div class="metric-unit">RPM</div>
+                                        <div class="mt-2">
+                                            <small class="text-muted d-block">🔄 Cadence</small>
+                                            <small class="text-muted" id="cadenceDevice">No device</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Speed -->
+                            <div class="col-md-6 col-xl-3">
+                                <div class="card metric-card border-0 rounded-4 h-100">
+                                    <div class="card-body text-center">
+                                        <div class="sensor-icon speed">
+                                            <i class="fas fa-tachometer-alt"></i>
+                                        </div>
+                                        <div class="metric-value" id="speed">--</div>
+                                        <div class="metric-unit">km/h</div>
+                                        <div class="mt-2">
+                                            <small class="text-muted d-block">📏 Speed</small>
+                                            <small class="text-muted" id="speedDevice">No device</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Session Controls -->
+                        <div class="card device-card border-0 rounded-4 mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <i class="fas fa-play-circle me-2"></i>
+                                            Workout Session
+                                        </h6>
+                                        <div id="sessionStatus" class="text-muted">
+                                            <span class="badge bg-secondary">No Active Session</span>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button id="startSessionBtn" class="btn btn-success btn-sm">
+                                            <i class="fas fa-play me-1"></i> Start Session
+                                        </button>
+                                        <button id="stopSessionBtn" class="btn btn-danger btn-sm" style="display: none;">
+                                            <i class="fas fa-stop me-1"></i> Stop Session
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Real-time Charts -->
+                        <div class="chart-container">
+                            <h5 class="mb-3">
+                                <i class="fas fa-chart-line me-2"></i>
+                                Real-time Sensor Data
+                                <small class="text-muted ms-2" id="recordingIndicator" style="display: none;">
+                                    <i class="fas fa-circle text-danger"></i> Recording
+                                </small>
+                            </h5>
+                            <canvas id="liveChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Data Stream Info -->
+                    <div class="col-lg-4">
+                        <div class="card device-card border-0 rounded-4">
+                            <div class="card-header bg-transparent border-0 pb-0">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-stream me-2"></i>
+                                    Data Stream Info
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-2 text-center mb-3">
+                                    <div class="col-6">
+                                        <div class="metric-value" style="font-size: 1.5rem;" id="dataPointsCount">0</div>
+                                        <small class="text-muted">Data Points</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="metric-value" style="font-size: 1.5rem;" id="dataRateDisplay">0</div>
+                                        <small class="text-muted">Hz</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <small class="text-muted">Last Update:</small>
+                                    <div id="lastUpdate" class="fw-bold">Never</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <small class="text-muted">Recording Status:</small>
+                                    <div id="recordingStatus" class="fw-bold text-warning">Waiting for Session</div>
+                                </div>
+                                
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-warning">
+                                        <i class="fas fa-pause"></i> Pause
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-download"></i> Export
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Raw Data Stream -->
+                        <div class="card device-card border-0 rounded-4 mt-3">
+                            <div class="card-header bg-transparent border-0 pb-0">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-terminal me-2"></i>
+                                    Raw Data Stream
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="rawDataStream" class="font-monospace" style="height: 200px; overflow-y: auto; font-size: 0.8rem; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                                    <div class="text-muted text-center py-4">
+                                        <i class="fas fa-stream fa-2x mb-2"></i>
+                                        <p class="mb-0">No data stream yet</p>
+                                        <small>Connect sensors to see live data</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Error Dialog -->
+    <div id="errorOverlay" class="error-overlay">
+        <div class="error-dialog">
+            <div class="error-header">
+                <div class="d-flex align-items-center">
+                    <div id="errorIcon" class="error-icon error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div>
+                        <h3 id="errorTitle" class="error-title">Connection Error</h3>
+                    </div>
+                </div>
+                <button id="errorCloseBtn" class="error-close" type="button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="error-body">
+                <p id="errorMessage" class="error-message">
+                    We encountered an issue while trying to connect to your sensors.
+                </p>
+                <button id="errorToggleDetails" class="error-toggle-details" style="display: none;">
+                    Show technical details
+                </button>
+                <div id="errorDetails" class="error-details"></div>
+                <div class="error-actions">
+                    <button id="errorRetryBtn" class="error-btn error-btn-secondary" style="display: none;">
+                        <i class="fas fa-redo-alt"></i>
+                        Retry
+                    </button>
+                    <button id="errorReloadBtn" class="error-btn error-btn-secondary" style="display: none;">
+                        <i class="fas fa-sync-alt"></i>
+                        Reload Page
+                    </button>
+                    <button id="errorOkBtn" class="error-btn error-btn-primary">
+                        <i class="fas fa-check"></i>
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Dashboard JavaScript -->
+    <script src="dashboard.js"></script>
+</body>
+</html>

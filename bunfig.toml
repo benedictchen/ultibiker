@@ -1,0 +1,20 @@
+[install]
+# Use exact versions for reproducible builds
+exact = true
+
+# Prefer offline packages when available
+offline = false
+
+# Registry configuration
+registry = "https://registry.npmjs.org"
+
+[run]
+# Enable hot reload for development
+hot = true
+
+# Environment variables
+env = ".env"
+
+[test]
+# Use Bun's built-in test runner
+preload = ["./tests/setup.ts"]

@@ -1,0 +1,3 @@
+the goal of utlimate biker is to create a complete application that helps anybody with bicycle sensors to be able to have a full self controlled dashboard while they bike that unifies all data sources from pedal data, heart rate, cadence, and even biking form and movement via AI.  we want unify and make that data available for other services to take that data and build interesting products based on that data.  we want to be able to integrate with services such as Strava, Apple Health, and more for the purposes of making better products based on health, fitness, and athletics.
+
+the short term goal is simply to unify all of the sensor data into a uniform data feed that can be leveraged by other services.

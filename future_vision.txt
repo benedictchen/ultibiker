@@ -1,0 +1,9 @@
+- create a unifying API that is able to aggregate data from mobile, computer/laptop, or any other kind of computing device and centralize the data and provide a feed to a cloud server.
+- each uploading device has a private/public key, which it will use to identify itself and communicate with the server
+- upload all data in a feed to the cloud server
+- make the cloud server put the data into the user's account.  if there is no user account, take a unique id of the data feed and store it there until a user connects their account with that unique, cryptographic id.
+- the server will then provide the data feed feed API to third parties who are authenticated partners who have to identify themselves and login to the platform as well as have our users authorize their applications
+- the third party developers can then create tools that utilize our data feed and advertise and sell their products that utilize our data feed such as custom dashboards, workouts, social interaction, and more.
+- we will be the App Store for these customers who provide their data and provide payouts to people who develop and sell their products to us.
+
+
